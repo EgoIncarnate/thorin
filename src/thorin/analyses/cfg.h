@@ -46,9 +46,11 @@ public:
 private:
     const CFNodeSet& preds() const { return preds_; }
     const CFNodeSet& succs() const { return succs_; }
-    void link(const CFNode* other) const {
-        this->succs_.insert(other);
-        other->preds_.insert(this);
+    bool link(const CFNode* other) const {
+        bool s_changed = this->succs_.insert(other).second;
+        bool p_changed = other->preds_.insert(this).second;
+        assert(s_changed == p_changed && "A succ should exist iff if it's a pred");
+        return s_changed;
     }
 
     Def def_;
@@ -132,7 +134,7 @@ private:
     const InNode* exit() const { return in_nodes_.array().back(); }
     const Scope& scope_;
 
-    Scope::Map<const InNode*> in_nodes_; ///< Maps lambda in scope to InNode. 
+    Scope::Map<const InNode*> in_nodes_; ///< Maps lambda in scope to InNode.
     mutable AutoPtr<const F_CFG> f_cfg_;
     mutable AutoPtr<const B_CFG> b_cfg_;
     size_t num_in_nodes_ = 0;
@@ -144,7 +146,7 @@ private:
 
 //------------------------------------------------------------------------------
 
-/** 
+/**
  * @brief A Control-Flow Graph.
  *
  * A small wrapper for the information obtained by a @p CFA.
@@ -179,11 +181,11 @@ public:
     ArrayRef<const CFNode*> rpo() const { return rpo_.array(); }
     const CFNode* rpo(size_t i) const { return rpo_.array()[i]; }
     /// Range of @p InNode%s, i.e., all @p OutNode%s will be skipped during iteration.
-    Range<filter_iterator<ArrayRef<const CFNode*>::const_iterator, bool (*)(const CFNode*), const InNode*>> in_rpo() const { 
+    Range<filter_iterator<ArrayRef<const CFNode*>::const_iterator, bool (*)(const CFNode*), const InNode*>> in_rpo() const {
         return range<const InNode*>(rpo().begin(), rpo().end(), is_in_node);
     }
-    Range<filter_iterator<ArrayRef<const CFNode*>::const_reverse_iterator, 
-            bool (*)(const CFNode*), const InNode*>> reverse_in_rpo() const { 
+    Range<filter_iterator<ArrayRef<const CFNode*>::const_reverse_iterator,
+            bool (*)(const CFNode*), const InNode*>> reverse_in_rpo() const {
         return range<const InNode*>(rpo().rbegin(), rpo().rend(), is_in_node);
     }
     /// Like @p rpo() but without @p entry()

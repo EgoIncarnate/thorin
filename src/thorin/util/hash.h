@@ -377,6 +377,51 @@ public:
     }
     HashTable& operator= (HashTable other) { swap(*this, other); return *this; }
 
+    bool operator== (const HashTable& other) {
+        if (size() != other.size())
+            return false;
+        const_iterator iter = begin();
+        while (iter != end()) {
+            auto key = (*iter.node_)->key();
+            auto mapped = (*iter.node_)->mapped();
+            auto other_mapped = (*other.find(key).node_)->mapped();
+            if (mapped != other_mapped)
+                return false;
+            iter++;
+        }
+    }
+
+    bool operator!= (const HashTable& other) { return !(*this == other); }
+
+    bool operator<= (const HashTable& other) {
+        if (size() >= other.size())
+            return false;
+        const_iterator iter = begin();
+        while (iter != end()) {
+            auto key = (*iter.node_)->key();
+            auto mapped = (*iter.node_)->mapped();
+            auto other_mapped = (*other.find(key).node_)->mapped();
+            if (mapped != other_mapped)
+                return false;
+            iter++;
+        }
+        return true;
+    }
+
+    bool operator> (const HashTable& other) {
+        return !(*this <= other);
+    }
+
+    bool operator>= (const HashTable& other) {
+        return other <= *this;
+    }
+
+    bool operator< (const HashTable& other) {
+        return other > *this;
+    }
+
+
+
 private:
 #ifndef NDEBUG
     int id() const { return id_; }
@@ -408,9 +453,9 @@ private:
 
 //------------------------------------------------------------------------------
 
-/** 
+/**
  * @brief This container is for the most part compatible with <tt>std::unordered_set</tt>.
- * 
+ *
  * We use our own implementation in order to have a consistent and deterministic behavior across different platforms.
  */
 template<class Key, class Hasher = Hash<Key>, class KeyEqual = std::equal_to<Key>>
@@ -436,13 +481,39 @@ public:
     HashSet(std::initializer_list<value_type> ilist, size_type capacity = Super::min_capacity, const hasher& hash_function = hasher(), const key_equal& key_eq = key_equal())
         : Super(ilist, capacity, hash_function, key_eq)
     {}
+
+    // TODO how to implement this for HashTable? difference.insert(value_type(key, mapped)) produced an error I didn't understand
+    HashSet operator- (const HashSet& other) {
+        HashSet difference;
+        const_iterator iter = Super::begin();
+        while (iter != Super::end()) {
+            auto key = *iter;
+            if (!other.contains(key)) {
+                difference.insert(key);
+            }
+            iter++;
+        }
+        return difference;
+    }
+
 };
+
+template<class Key, class Hasher = Hash<Key>, class KeyEqual = std::equal_to<Key>>
+std::ostream& operator<<(std::ostream& out, const HashSet<Key, Hasher, KeyEqual>& set) {
+    out << std::string("{");
+    std::string sep = "";
+    for (auto key : set) {
+        out << key << sep;
+        sep = ", ";
+    }
+    return out << std::string("}");
+}
 
 //------------------------------------------------------------------------------
 
-/** 
+/**
  * @brief This container is for the most part compatible with <tt>std::unordered_map</tt>.
- * 
+ *
  * We use our own implementation in order to have a consistent and deterministic behavior across different platforms.
  */
 template<class Key, class T, class Hasher = Hash<Key>, class KeyEqual = std::equal_to<Key>>

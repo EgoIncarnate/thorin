@@ -300,7 +300,7 @@ std::ostream& YCompGen::emit_cfnode(const CFG<forward>& cfg, const CFNode* node)
 void YCompGen::emit_scope_cfg(const Scope& scope) {
     newline() << "graph: {";
     up() << "title: \"scope" << scope.id() << "\"";
-    newline() << "label: \"scope " << scope.id() << "\"";
+    newline() << "label: \"scope " << scope.id() << " " << scope.entry()->unique_name() << "\"";
 
     auto& cfg = scope.f_cfg();
     for (auto node : cfg.rpo()) {
@@ -328,7 +328,7 @@ void YCompGen::emit_world_cfg(const World& world) {
 void YCompGen::emit_scope(const Scope& scope) {
     newline() << "graph: {";
     up() << "title: \"scope" << scope.id() << "\"";
-    newline() << "label: \"scope " << scope.id() << "\"";
+    newline() << "label: \"scope " << scope.id() << " " << scope.entry()->unique_name() << "\"";
     if (scheduled_) {
         auto schedule = schedule_smart(scope);
         for (auto& block : schedule)
