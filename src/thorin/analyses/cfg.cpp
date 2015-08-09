@@ -332,8 +332,8 @@ CFNodeSet CFABuilder::cf_nodes(const CFPair& op_c) {
     // fast check whether something changed, works since analysis is monotonic
     if (old_set.size() < new_set.size()) {
         auto difference = new_set - old_set;
-
         assert(new_set > old_set && "old_set must be a subset of new_set or monotonicity was broken");
+
         op2nodes_[op_c] = new_set;
 
 #ifndef NDEBUG
@@ -349,7 +349,6 @@ CFNodeSet CFABuilder::cf_nodes(const CFPair& op_c) {
                     add_to_worklist(CFPair(new_in_node, 0));
                 }
             } else {
-                // TODO extract to helper fn
                 auto new_out_node = new_node->as<OutNode>();
                 if (op_index == 0) {
                     // make sure it's a 1-context-sensitive out_node
