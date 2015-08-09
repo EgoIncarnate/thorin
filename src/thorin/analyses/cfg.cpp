@@ -208,7 +208,7 @@ public:
 
 private:
     CFA& cfa_;
-    DefMap<CFNodeSet> def2nodes_;
+    HashMap<CFPair, CFNodeSet, CFPairHash, CFPairEqual> op2nodes_;
     HashMap<CFPair, bool, CFPairHash, CFPairEqual> stable_;
     std::queue<CFPair> worklist;
     std::ofstream log_;
@@ -276,18 +276,18 @@ CFNodeSet CFABuilder::cf_nodes(const CFPair& op_c) {
     auto iter = stable_.find(op_c);
     bool is_first_compute = (iter == stable_.end());
     if (!is_first_compute && iter->second) {
-        log_nl() << "is stable: " << def2nodes_[def];
+        log_nl() << "is stable: " << op2nodes_[op_c];
         log_indent -= 2;
-        return def2nodes_[def];
+        return op2nodes_[op_c];
     }
 
     // initialize if necessary for cycles
-    if (def2nodes_.find(def) == def2nodes_.end()) {
-        def2nodes_[def] = CFNodeSet();
+    if (op2nodes_.find(op_c) == op2nodes_.end()) {
+        op2nodes_[op_c] = CFNodeSet();
     }
     set_stable(op_c);
 
-    auto old_set = def2nodes_[def];
+    auto old_set = op2nodes_[op_c];
     auto new_set = cf_nodes_def_compute(node, def);
 
     log_nl() << "old set: " << old_set;
@@ -303,9 +303,10 @@ CFNodeSet CFABuilder::cf_nodes(const CFPair& op_c) {
         auto difference = new_set - old_set;
 
         assert(new_set > old_set && "old_set must be a subset of new_set or monotonicity was broken");
-        if (!is_out(def)) {
-            def2nodes_[def] = new_set; // TODO emplace or something?
-        }
+        // if (!is_out(def)) {
+            // log_nl() << "Updating op2nodes_ with " << new_set;
+            op2nodes_[op_c] = new_set; // TODO emplace or something?
+        // }
 
         log_indent++;
         for (auto new_node : difference) {
@@ -403,13 +404,15 @@ void CFABuilder::build_cfg() {
 
             // only link those that don't have a successor
             // we don't care about this other control flow path as with other OutNodes
-            if (out->def()->isa<Param>() && out->succs().size() == 0) {
+            // this is just to unify the end node as the canonical unique postdom
+            if (out->succs().size() == 0) {
                 link(out, cfa().exit());
             }
         }
     }
 
-    // TODO link CFNodes not reachable from exit
+    // TODO old comment: link CFNodes not reachable from exit
+    // TODO Klaas: for Outs see loop above, if there's an InNode w/o path to exit: endless loop?
     // HACK
     log_nl() << "scope entry: " << cfa().entry();
     log_nl() << "cfa entry: " << cfa().exit();
