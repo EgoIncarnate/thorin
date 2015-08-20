@@ -89,7 +89,7 @@ class CFABuilder {
 public:
     CFABuilder(CFA& cfa)
         : cfa_(cfa)
-#ifndef NDEBUG
+#ifdef LOG
         , log_(cfa.scope().entry()->unique_name() + "-cfa.log")
         , log_indent(0)
 #endif
@@ -102,7 +102,7 @@ public:
         build_cfg();
     }
 
-#ifndef NDEBUG
+#ifdef LOG
     ~CFABuilder() {
         log_.close();
     }
@@ -125,7 +125,7 @@ public:
         if (auto in = find(cfa().in_nodes(), lambda))
             return in;
         ++cfa_.num_in_nodes_;
-#ifndef NDEBUG
+#ifdef LOG
         log_nl() << "in_node: new InNode(" << lambda->unique_name() << ")";
 #endif
         auto in = cfa_.in_nodes_[lambda] = new InNode(lambda);
@@ -140,7 +140,7 @@ public:
         if (auto out = find(in->out_nodes_, def))
             return out;
         ++cfa_.num_out_nodes_;
-#ifndef NDEBUG
+#ifdef LOG
         log_nl() << "out_node: new OutNode(" << in << ", " << def->unique_name() << ")";
 #endif
         return in->out_nodes_[def] = new OutNode(in, def);
@@ -177,13 +177,12 @@ public:
         return false;
     }
 
-    void link(const CFNode* src, const CFNode* tgt) {
-#ifndef NDEBUG
-        if(
-#endif
-        src->link(tgt)
-#ifndef NDEBUG
-            ) log_nl() << "> link " << src << " -> " << tgt;
+    void link(const CFNode* src, const CFNode* dst) {
+#ifdef LOG
+        if (src->link(dst))
+            log_nl() << "> link " << src << " -> " << dst;
+#else
+        src->link(dst);
 #endif
     }
 
@@ -196,25 +195,25 @@ public:
                 stable_[op_c] = false;
             }
             worklist.push(op_c);
-#ifndef NDEBUG
+#ifdef LOG
             log_nl() << "+WL: " << op_c.first << ", op " << op_c.second << " = " << op->unique_name() << ": ";
             emit_type(op->type(), log());
 #endif
         } else {
-#ifndef NDEBUG
+#ifdef LOG
             log_nl() << "=WL: Not adding to WL, unstable: " << op_c.first << ", op " << op_c.second;
 #endif
         }
     }
 
     void set_stable(const CFPair& op_c) {
-#ifndef NDEBUG
+#ifdef LOG
         log_nl() << "marking stable: " << op_c.first << ", op " << op_c.second;
 #endif
         stable_[op_c] = true;
     }
 
-#ifndef NDEBUG
+#ifdef LOG
     std::ofstream& log_nl() {
         log_ << std::endl;
         for(size_t i = log_indent; i > 0; i--)
@@ -232,7 +231,7 @@ private:
     HashMap<CFPair, CFNodeSet, CFPairHash, CFPairEqual> op2nodes_;
     HashMap<CFPair, bool, CFPairHash, CFPairEqual> stable_;
     std::queue<CFPair> worklist;
-#ifndef NDEBUG
+#ifdef LOG
     std::ofstream log_;
     size_t log_indent;
 #endif
@@ -292,7 +291,7 @@ CFNodeSet CFABuilder::cf_nodes(const CFPair& op_c) {
     auto node = op_c.first;
     auto op_index = op_c.second;
     auto def = node->lambda()->op(op_index);
-#ifndef NDEBUG
+#ifdef LOG
     log_indent++;
     log_nl() << "cf_nodes(" << node->lambda()->unique_name() << ", " << op_index << ") op is: " << def;
     log_indent++;
@@ -301,7 +300,7 @@ CFNodeSet CFABuilder::cf_nodes(const CFPair& op_c) {
     auto iter = stable_.find(op_c);
     bool is_first_compute = (iter == stable_.end());
     if (!is_first_compute && iter->second) {
-#ifndef NDEBUG
+#ifdef LOG
         log_nl() << "is stable: " << op2nodes_[op_c];
         log_indent -= 2;
 #endif
@@ -317,13 +316,13 @@ CFNodeSet CFABuilder::cf_nodes(const CFPair& op_c) {
     auto old_set = op2nodes_[op_c];
     auto new_set = cf_nodes_def_compute(node, def);
 
-#ifndef NDEBUG
+#ifdef LOG
     log_nl() << "old set: " << old_set;
     log_nl() << "new set: " << new_set;
 #endif
 
     if (is_first_compute) {
-#ifndef NDEBUG
+#ifdef LOG
         log_nl() << "ignoring old_set, first time computing this";
 #endif
         old_set = {};
@@ -336,11 +335,11 @@ CFNodeSet CFABuilder::cf_nodes(const CFPair& op_c) {
 
         op2nodes_[op_c] = new_set;
 
-#ifndef NDEBUG
+#ifdef LOG
         log_indent++;
 #endif
         for (auto new_node : difference) {
-#ifndef NDEBUG
+#ifdef LOG
             log_nl() << "newly found node: " << new_node;
 #endif
             if (auto new_in_node = new_node->isa<InNode>()) {
@@ -355,7 +354,7 @@ CFNodeSet CFABuilder::cf_nodes(const CFPair& op_c) {
                     auto local_out_node = context_cf_node(node, new_out_node);
                     // all cf_nodes of args may be succs of local_out_node
                     auto lambda = node->lambda();
-#ifndef NDEBUG
+#ifdef LOG
                     log_indent++;
 #endif
                     for (size_t arg_i = 1; arg_i < lambda->size() ; arg_i++) {
@@ -363,7 +362,7 @@ CFNodeSet CFABuilder::cf_nodes(const CFPair& op_c) {
                         // compute their nodes now, need to link
                         if (!arg->type().isa<FnType>())
                             continue;
-#ifndef NDEBUG
+#ifdef LOG
                         log_nl() << "arg " << arg->unique_name() << " (" << lambda->unique_name() << ", " << arg_i << "): ";
                         emit_type(arg->type(), log());
                         log_indent++;
@@ -372,34 +371,34 @@ CFNodeSet CFABuilder::cf_nodes(const CFPair& op_c) {
                             link(local_out_node, arg_node);
                             if (auto arg_in = arg_node->isa<InNode>()) {
                                 // found a new predecessor of local_arg_node->lambda
-#ifndef NDEBUG
+#ifdef LOG
                                 log_nl() << "recompute continuation of " << arg_in << ":";
 #endif
                                 add_to_worklist(CFPair(arg_in, 0));
                             }
                         }
-#ifndef NDEBUG
+#ifdef LOG
                         log_indent--;
 #endif
                     }
-#ifndef NDEBUG
+#ifdef LOG
                     log_indent--;
 #endif
                 }
             }
         }
-#ifndef NDEBUG
+#ifdef LOG
         log_indent--;
 #endif
     }
-#ifndef NDEBUG
+#ifdef LOG
     log_indent -= 2;
 #endif
     return new_set;
 }
 
 void CFABuilder::run_cfa() {
-#ifndef NDEBUG
+#ifdef LOG
     log_nl() << "run_cfa()";
 #endif
     worklist = std::queue<CFPair>();
@@ -410,7 +409,7 @@ void CFABuilder::run_cfa() {
 
     while (!worklist.empty()) {
         auto pair = pop(worklist);
-#ifndef NDEBUG
+#ifdef LOG
         log() << std::endl;
         log_nl() << "run_cfa() pop: " << pair.first->lambda()->unique_name() << ": ";
         emit_type(pair.first->lambda()->type(), log());
@@ -418,45 +417,45 @@ void CFABuilder::run_cfa() {
 #endif
         cf_nodes(CFPair(pair.first, pair.second));
     }
-#ifndef NDEBUG
+#ifdef LOG
     log_nl() << "run_cfa: worklist empty, finished";
     log_nl() << "Final links after CFA:";
     log_indent++;
 #endif
     for (auto node : cfa().in_nodes()) {
-#ifndef NDEBUG
+#ifdef LOG
         log_nl() << node;
         log_indent++;
 #endif
         for (auto succ : node->succs()) {
-#ifndef NDEBUG
+#ifdef LOG
             log_nl() << succ;
 #endif
             if (succ->isa<OutNode>()) {
-#ifndef NDEBUG
+#ifdef LOG
                 log_indent++;
 #endif
                 for (auto o_succ : succ->succs()) {
-#ifndef NDEBUG
+#ifdef LOG
                     log_nl() << o_succ;
 #endif
                 }
-#ifndef NDEBUG
+#ifdef LOG
                 log_indent--;
 #endif
             }
         }
-#ifndef NDEBUG
+#ifdef LOG
         log_indent--;
 #endif
     }
-#ifndef NDEBUG
+#ifdef LOG
     log_indent--;
 #endif
 }
 
 void CFABuilder::build_cfg() {
-#ifndef NDEBUG
+#ifdef LOG
     log_nl() << "build_cfg: adding necessary exit links";
 #endif
     for (auto in : cfa().in_nodes()) {
@@ -475,7 +474,7 @@ void CFABuilder::build_cfg() {
     // TODO old comment: link CFNodes not reachable from exit
     // TODO Klaas: for Outs see loop above, if there's an InNode w/o path to exit: endless loop?
     // HACK
-#ifndef NDEBUG
+#ifdef LOG
     log_nl() << "scope entry: " << cfa().entry();
     log_nl() << "cfa entry: " << cfa().exit();
 #endif
@@ -483,7 +482,7 @@ void CFABuilder::build_cfg() {
         link(cfa().entry(), cfa().exit());
     }
 
-#ifndef NDEBUG
+#ifdef LOG
     bool error = false;
     for (auto in : cfa().in_nodes()) {
         if (in != cfa().entry() && in->preds_.size() == 0) {
