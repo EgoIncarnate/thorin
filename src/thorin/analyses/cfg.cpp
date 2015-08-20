@@ -187,7 +187,6 @@ public:
     }
 
     void add_to_worklist(const CFPair& op_c) {
-        auto op = op_c.first->lambda()->op(op_c.second);
         auto iter = stable_.find(op_c);
         bool is_first_compute = iter == stable_.end();
         if (is_first_compute || iter->second) {
@@ -196,6 +195,7 @@ public:
             }
             worklist.push(op_c);
 #ifdef LOG
+            auto op = op_c.first->lambda()->op(op_c.second);
             log_nl() << "+WL: " << op_c.first << ", op " << op_c.second << " = " << op->unique_name() << ": ";
             emit_type(op->type(), log());
 #endif
