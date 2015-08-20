@@ -417,39 +417,27 @@ void CFABuilder::run_cfa() {
 #endif
         cf_nodes(CFPair(pair.first, pair.second));
     }
+
 #ifdef LOG
     log_nl() << "run_cfa: worklist empty, finished";
     log_nl() << "Final links after CFA:";
     log_indent++;
-#endif
+
     for (auto node : cfa().in_nodes()) {
-#ifdef LOG
         log_nl() << node;
         log_indent++;
-#endif
         for (auto succ : node->succs()) {
-#ifdef LOG
             log_nl() << succ;
-#endif
             if (succ->isa<OutNode>()) {
-#ifdef LOG
                 log_indent++;
-#endif
                 for (auto o_succ : succ->succs()) {
-#ifdef LOG
                     log_nl() << o_succ;
-#endif
                 }
-#ifdef LOG
                 log_indent--;
-#endif
             }
         }
-#ifdef LOG
         log_indent--;
-#endif
     }
-#ifdef LOG
     log_indent--;
 #endif
 }
