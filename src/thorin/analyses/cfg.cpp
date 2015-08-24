@@ -138,12 +138,11 @@ public:
         return in->out_nodes_[def] = new OutNode(in, def);
     }
 
-    const CFNode* cf_node(const InNode* node, Lambda* lambda) {
-        if (!scope().outer_contains(lambda)) {
-            return out_node(node, lambda);
-        } else {
+    const CFNode* cf_node(const InNode* context, Lambda* lambda) {
+        if (scope().outer_contains(lambda))
             return in_node(lambda);
-        }
+        else
+            return out_node(context, lambda);
     }
 
     const CFNode* context_cf_node(const InNode* context, const CFNode* node) {
