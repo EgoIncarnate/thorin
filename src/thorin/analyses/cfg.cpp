@@ -140,9 +140,9 @@ public:
 
     const CFNode* cf_node(const InNode* node, Lambda* lambda) {
         if (!scope().outer_contains(lambda)) {
-            return { out_node(node, lambda) };
+            return out_node(node, lambda);
         } else {
-            return { in_node(lambda) };
+            return in_node(lambda);
         }
     }
 
