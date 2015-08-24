@@ -102,7 +102,6 @@ public:
 #endif
 
     void run_cfa();
-    void unreachable_node_elimination();
     void build_cfg();
 
     const CFA& cfa() const { return cfa_; }
@@ -451,6 +450,7 @@ void CFABuilder::build_cfg() {
 
     // TODO old comment: link CFNodes not reachable from exit
     // TODO Klaas: for Outs see loop above, if there's an InNode w/o path to exit: endless loop?
+    // TODO Roland: yes, endless loops.
     // HACK
 #ifdef LOG
     log_nl() << "scope entry: " << cfa().entry();
