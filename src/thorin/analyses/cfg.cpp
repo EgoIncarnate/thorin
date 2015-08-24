@@ -13,7 +13,6 @@
 
 namespace thorin {
 
-
 std::ostream& operator<<(std::ostream& out, const CFNode& node) {
     return out << (node.isa<InNode>() ? "" : node.in_node()->def()->unique_name() + "-")
         << node.def()->unique_name();
@@ -34,22 +33,16 @@ uint64_t CFNodeHash::operator() (const CFNode* n) const {
 typedef std::pair<const InNode*, size_t> CFPair;
 
 struct CFPairHash {
-    uint64_t operator() (const CFPair&) const;
+    uint64_t operator() (const CFPair& op_c) const {
+        return hash_combine(CFNodeHash()(op_c.first), op_c.second);
+    }
 };
-
-uint64_t CFPairHash::operator() (const CFPair& op_c) const {
-    auto h = CFNodeHash().operator()(op_c.first);
-    auto hash = hash_combine(h, op_c.second);
-    return hash;
-}
 
 struct CFPairEqual {
-    bool operator() (const CFPair&, const CFPair&) const;
+    bool operator() (const CFPair& op_c_1, const CFPair& op_c_2) const {
+        return op_c_1.first->lambda() == op_c_2.first->lambda()  && op_c_1.second == op_c_2.second;
+    }
 };
-
-bool CFPairEqual::operator() (const CFPair& op_c_1, const CFPair& op_c_2) const {
-    return op_c_1.first->lambda() == op_c_2.first->lambda()  && op_c_1.second == op_c_2.second;
-}
 
 //------------------------------------------------------------------------------
 
@@ -401,11 +394,8 @@ void CFABuilder::run_cfa() {
 #ifdef LOG
     log_nl() << "run_cfa()";
 #endif
-    worklist = std::queue<CFPair>();
-
-    if (cfa().entry()->lambda()->size() > 0) {
+    if (!cfa().entry()->lambda()->empty())
         add_to_worklist(CFPair(cfa().entry(), 0));
-    }
 
     while (!worklist.empty()) {
         auto pair = pop(worklist);
