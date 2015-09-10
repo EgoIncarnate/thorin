@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cstdint>
 #include <functional>
+#include <string>
 #include <type_traits>
 
 namespace thorin {
