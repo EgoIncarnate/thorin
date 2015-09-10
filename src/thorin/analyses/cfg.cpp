@@ -125,10 +125,6 @@ public:
         return in;
     }
 
-    const OutNode* out_node(const Param* param) {
-        return out_node(in_node(param->lambda()), param);
-    }
-
     const OutNode* out_node(const InNode* in, Def def) {
         if (auto out = find(in->out_nodes_, def))
             return out;
