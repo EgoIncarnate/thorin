@@ -1,10 +1,12 @@
 #ifndef THORIN_ANALYSES_CFG_H
 #define THORIN_ANALYSES_CFG_H
 
+#include <iostream>
 #include <vector>
 
-#include "thorin/lambda.h"
 #include "thorin/analyses/scope.h"
+#include "thorin/be/graphs.h"
+#include "thorin/lambda.h"
 #include "thorin/util/array.h"
 #include "thorin/util/autoptr.h"
 #include "thorin/util/indexmap.h"
@@ -15,6 +17,7 @@ namespace thorin {
 
 template<bool> class LoopTree;
 template<bool> class DomTreeBase;
+template<bool> class DFGBase;
 class CFNode;
 class InNode;
 class OutNode;
@@ -193,10 +196,29 @@ public:
     const InNode* operator [] (Lambda* lambda) const { return cfa()[lambda]; }
     const DomTreeBase<forward>& domtree() const;
     const LoopTree<forward>& looptree() const;
+    const DFGBase<forward>& dfg() const;
     void dump() const;
 
     static size_t index(const CFNode* n) { return forward ? n->f_index_ : n->b_index_; }
     static bool is_in_node(const CFNode* n) { return n->isa<InNode>(); }
+
+    static void emit_scope(const Scope& scope, std::ostream& ostream = std::cout) {
+        auto& cfg = scope.cfg<forward>();
+
+        emit_ycomp(ostream, scope, range(cfg.rpo().begin(), cfg.rpo().end()),
+                   [] (const CFNode* node) {
+                       return range(node->succs().begin(), node->succs().end());
+                   },
+                   [] (const CFNode* node) {
+                       return std::make_pair(node->def()->unique_name(), node->def()->unique_name());
+                   },
+                   YComp_Orientation::TOP_TO_BOTTOM
+        );
+    }
+
+    static void emit_world(const World& world, std::ostream& ostream = std::cout) {
+        emit_ycomp(ostream, world, emit_scope);
+    }
 
 private:
     size_t post_order_visit(const CFNode* n, size_t i);
@@ -205,6 +227,7 @@ private:
     Map<const CFNode*> rpo_;
     mutable AutoPtr<const DomTreeBase<forward>> domtree_;
     mutable AutoPtr<const LoopTree<forward>> looptree_;
+    mutable AutoPtr<const DFGBase<forward>> dfg_;
 };
 
 //------------------------------------------------------------------------------
