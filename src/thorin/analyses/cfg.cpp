@@ -336,7 +336,7 @@ CFNodeSet CFABuilder::cf_nodes(const CFPair& op_c) {
 #ifdef LOG
                     log_indent++;
 #endif
-                    for (size_t arg_i = 1; arg_i < lambda->size() ; arg_i++) {
+                    for (size_t arg_i = 1; arg_i < lambda->size(); arg_i++) {
                         auto arg = lambda->op(arg_i);
                         // compute their nodes now, need to link
                         if (!arg->type().isa<FnType>())
