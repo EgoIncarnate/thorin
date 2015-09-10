@@ -14,14 +14,19 @@
 
 namespace thorin {
 
-std::ostream& operator<<(std::ostream& out, const CFNode& node) {
-    return out << (node.isa<InNode>() ? "" : node.in_node()->def()->unique_name() + "-")
-        << node.def()->unique_name();
+std::ostream& operator <<(std::ostream& out, const CFNode& node) {
+    return out << (node.isa<InNode>() ? "" : node.in_node()->def()->unique_name() + "-") << node.def()->unique_name();
 }
 
-std::ostream& operator<<(std::ostream& out, const CFNode* node) {
+std::ostream& operator <<(std::ostream& out, const CFNode* node) {
     return out << *node;
 }
+
+std::ostream& operator << (std::ostream& o, Def def) {
+    emit_type(def->type(), o);
+    return o << " " << def->unique_name();
+}
+
 //------------------------------------------------------------------------------
 
 uint64_t CFNodeHash::operator() (const CFNode* n) const {
@@ -156,15 +161,6 @@ public:
         }
     }
 
-    bool is_out(const Def& def) {
-        if (auto lambda = def->isa_lambda()) {
-            return !scope().outer_contains(lambda);
-        } else if (auto param = def->isa<Param>()) {
-            return param->lambda() == scope().entry();
-        }
-        return false;
-    }
-
     void link(const CFNode* src, const CFNode* dst) {
 #ifdef LOG
         if (src->link(dst))
@@ -267,11 +263,6 @@ CFNodeSet CFABuilder::cf_nodes_def_compute(const InNode* node, const Def& def) {
         });
         return nodes;
     }
-}
-
-std::ostream& operator << (std::ostream& o, Def def) {
-    emit_type(def->type(), o);
-    return o << " " << def->unique_name();
 }
 
 // computes all necessary dependencies and set def to stable and reachable
