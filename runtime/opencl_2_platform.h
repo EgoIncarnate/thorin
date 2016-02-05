@@ -1,9 +1,10 @@
-#ifndef OPENCL_PLATFORM_H
-#define OPENCL_PLATFORM_H
+#ifndef OPENCL_2_PLATFORM_H
+#define OPENCL_2_PLATFORM_H
 
 #include "platform.h"
 #include "runtime.h"
 #include "opencl_utils.h"
+
 #include <list>
 #include <string>
 #include <unordered_map>
@@ -17,11 +18,11 @@
 #include <CL/cl_ext.h>
 #endif
 
-/// OpenCL platform. Has the same number of devices as that of the OpenCL implementation.
-class OpenCLPlatform : public Platform {
+/// OpenCL2 platform. Has the same number of devices as that of the OpenCL2 implementation.
+class OpenCL2Platform : public Platform {
 public:
-    OpenCLPlatform(Runtime* runtime);
-    ~OpenCLPlatform();
+    OpenCL2Platform(Runtime* runtime);
+    ~OpenCL2Platform();
 
 protected:
     struct dim3 {
@@ -51,7 +52,7 @@ protected:
 
     int dev_count() override;
 
-    std::string name() override { return "OpenCL"; }
+    std::string name() override { return "OpenCL 2.0"; }
 
     typedef std::unordered_map<std::string, cl_kernel> KernelMap;
 
@@ -74,7 +75,6 @@ protected:
     };
 
     std::vector<DeviceData> devices_;
-
 };
 
 #endif

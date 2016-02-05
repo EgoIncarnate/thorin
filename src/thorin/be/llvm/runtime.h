@@ -20,7 +20,8 @@ public:
     enum Platform {
         CPU_PLATFORM,
         CUDA_PLATFORM,
-        OPENCL_PLATFORM
+        OPENCL_PLATFORM,
+        OPENCL2_PLATFORM
     };
 
     /// Emits a call to thorin_set_block_size.

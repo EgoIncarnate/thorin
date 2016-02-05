@@ -36,6 +36,9 @@
 #ifdef ENABLE_OPENCL
 #include "opencl_platform.h"
 #endif
+#ifdef ENABLE_OPENCL2
+#include "opencl_2_platform.h"
+#endif
 
 static Runtime runtime;
 
@@ -51,6 +54,11 @@ Runtime::Runtime() {
     register_platform<OpenCLPlatform>();
 #else
     register_platform<DummyPlatform>("OpenCL");
+#endif
+#ifdef ENABLE_OPENCL2
+    register_platform<OpenCL2Platform>();
+#else
+    register_platform<DummyPlatform>("OpenCL2");
 #endif
 }
 

@@ -73,6 +73,7 @@ Lambda* CodeGen::emit_intrinsic(Lambda* lambda) {
         case Intrinsic::NVVM:        return runtime_->emit_host_code(*this, Runtime::CUDA_PLATFORM, ".nvvm", lambda);
         case Intrinsic::SPIR:        return runtime_->emit_host_code(*this, Runtime::OPENCL_PLATFORM, ".spir.bc", lambda);
         case Intrinsic::OpenCL:      return runtime_->emit_host_code(*this, Runtime::OPENCL_PLATFORM, ".cl", lambda);
+        case Intrinsic::OpenCL2:     return runtime_->emit_host_code(*this, Runtime::OPENCL2_PLATFORM, ".cl", lambda);
         case Intrinsic::Parallel:    return emit_parallel(lambda);
         case Intrinsic::Spawn:       return emit_spawn(lambda);
         case Intrinsic::Sync:        return emit_sync(lambda);
@@ -1020,6 +1021,7 @@ void emit_llvm(World& world, int opt, bool debug) {
     World nvvm(world.name());
     World spir(world.name());
     World opencl(world.name());
+    World opencl2(world.name());
 
     // determine different parts of the world which need to be compiled differently
     Scope::for_each(world, [&] (const Scope& scope) {
@@ -1033,6 +1035,8 @@ void emit_llvm(World& world, int opt, bool debug) {
             imported = import(spir, lambda)->as_lambda();
         else if (lambda->is_passed_to_intrinsic(Intrinsic::OpenCL))
             imported = import(opencl, lambda)->as_lambda();
+        else if (lambda->is_passed_to_intrinsic(Intrinsic::OpenCL2))
+             imported = import(opencl2, lambda)->as_lambda();
         else
             return;
 
@@ -1045,7 +1049,7 @@ void emit_llvm(World& world, int opt, bool debug) {
             imported->param(i)->name = lambda->param(i)->unique_name();
     });
 
-    if (!cuda.empty() || !nvvm.empty() || !spir.empty() || !opencl.empty())
+    if (!cuda.empty() || !nvvm.empty() || !spir.empty() || !opencl.empty() || !opencl2.empty())
         world.cleanup();
 
     CPUCodeGen(world).emit(opt, debug);
@@ -1053,6 +1057,7 @@ void emit_llvm(World& world, int opt, bool debug) {
     if (!nvvm.  empty()) NVVMCodeGen(nvvm).emit(opt, debug);
     if (!spir.  empty()) SPIRCodeGen(spir).emit(opt, debug);
     if (!opencl.empty()) OpenCLCodeGen(opencl).emit(/*opt,*/ debug);
+    if (!opencl2.empty()) OpenCLCodeGen(opencl2).emit(/*opt,*/ debug);
 }
 
 //------------------------------------------------------------------------------

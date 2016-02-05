@@ -1,4 +1,4 @@
-#include "opencl_platform.h"
+#include "opencl_2_platform.h"
 #include "runtime.h"
 
 #include <algorithm>
@@ -8,12 +8,11 @@
 #include <fstream>
 #include <string>
 #include <cstring>
-
 #ifndef KERNEL_DIR
 #define KERNEL_DIR ""
 #endif
 
-OpenCLPlatform::OpenCLPlatform(Runtime* runtime)
+OpenCL2Platform::OpenCL2Platform(Runtime* runtime)
     : Platform(runtime)
 {
     // get OpenCL platform count
@@ -41,59 +40,56 @@ OpenCLPlatform::OpenCLPlatform(Runtime* runtime)
         WLOG("  Platform Version: %", buffer);
         checkErr(err, "clGetPlatformInfo()");
 
-        err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, 0, NULL, &num_devices);
-        checkErr(err, "clGetDeviceIDs()");
+        // only consider platforms that support OpenCL 2.0 or higher
+        if(strstr(buffer, "OpenCL 2.") != NULL)
+        {
+            err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, 0, NULL, &num_devices);
+            checkErr(err, "clGetDeviceIDs()");
 
-        cl_device_id* devices = new cl_device_id[num_devices];
-        err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, num_devices, devices, &num_devices);
-        checkErr(err, "clGetDeviceIDs()");
+            cl_device_id* devices = new cl_device_id[num_devices];
+            err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, num_devices, devices, &num_devices);
+            checkErr(err, "clGetDeviceIDs()");
 
-        // get device info for each device
-        for (size_t j=0; j<num_devices; ++j) {
-            auto device = devices[j];
-            cl_device_type dev_type;
-            cl_uint device_vendor_id;
-            bool opencl2_0 = false;
+            // get device info for each device
+            for (size_t j=0; j<num_devices; ++j) {
+                auto device = devices[j];
+                cl_device_type dev_type;
+                cl_uint device_vendor_id;
             
-            err  = clGetDeviceInfo(devices[j], CL_DEVICE_NAME, sizeof(buffer), &buffer, NULL);
-            err |= clGetDeviceInfo(devices[j], CL_DEVICE_TYPE, sizeof(dev_type), &dev_type, NULL);
-            std::string type_str;
-            if (dev_type & CL_DEVICE_TYPE_CPU)         type_str  = "CL_DEVICE_TYPE_CPU";
-            if (dev_type & CL_DEVICE_TYPE_GPU)         type_str  = "CL_DEVICE_TYPE_GPU";
-            if (dev_type & CL_DEVICE_TYPE_ACCELERATOR) type_str  = "CL_DEVICE_TYPE_ACCELERATOR";
-            #ifdef CL_VERSION_1_2
-            if (dev_type & CL_DEVICE_TYPE_CUSTOM)      type_str  = "CL_DEVICE_TYPE_CUSTOM";
-            #endif
-            if (dev_type & CL_DEVICE_TYPE_DEFAULT)     type_str += "|CL_DEVICE_TYPE_DEFAULT";
-            WLOG("  (%) Device Name: % (%)", devices_.size(), buffer, type_str);
-            err |= clGetDeviceInfo(devices[j], CL_DEVICE_VENDOR, sizeof(buffer), &buffer, NULL);
-            err |= clGetDeviceInfo(devices[j], CL_DEVICE_VENDOR_ID, sizeof(device_vendor_id), &device_vendor_id, NULL);
-            WLOG("      Device Vendor: %", buffer, " (ID: ", device_vendor_id, ")");
-            err |= clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, sizeof(buffer), &buffer, NULL);
-            WLOG("      Device OpenCL Version: %", buffer);
+                err  = clGetDeviceInfo(devices[j], CL_DEVICE_NAME, sizeof(buffer), &buffer, NULL);
+                err |= clGetDeviceInfo(devices[j], CL_DEVICE_TYPE, sizeof(dev_type), &dev_type, NULL);
+                std::string type_str;
+                if (dev_type & CL_DEVICE_TYPE_CPU)         type_str  = "CL_DEVICE_TYPE_CPU";
+                if (dev_type & CL_DEVICE_TYPE_GPU)         type_str  = "CL_DEVICE_TYPE_GPU";
+                if (dev_type & CL_DEVICE_TYPE_ACCELERATOR) type_str  = "CL_DEVICE_TYPE_ACCELERATOR";
+#ifdef CL_VERSION_1_2
+                if (dev_type & CL_DEVICE_TYPE_CUSTOM)      type_str  = "CL_DEVICE_TYPE_CUSTOM";
+#endif
+                if (dev_type & CL_DEVICE_TYPE_DEFAULT)     type_str += "|CL_DEVICE_TYPE_DEFAULT";
+                WLOG("  (%) Device Name: % (%)", devices_.size(), buffer, type_str);
+                err |= clGetDeviceInfo(devices[j], CL_DEVICE_VENDOR, sizeof(buffer), &buffer, NULL);
+                err |= clGetDeviceInfo(devices[j], CL_DEVICE_VENDOR_ID, sizeof(device_vendor_id), &device_vendor_id, NULL);
+                WLOG("      Device Vendor: %", buffer, " (ID: ", device_vendor_id, ")");
+                err |= clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, sizeof(buffer), &buffer, NULL);
+                WLOG("      Device OpenCL Version: %", buffer);
 
-            if(strstr(buffer, "2.0") != NULL)
-            {
-                opencl2_0 = true;    
-            }
-            
-            err |= clGetDeviceInfo(devices[j], CL_DRIVER_VERSION, sizeof(buffer), &buffer, NULL);
-            WLOG("      Device Driver Version: %", buffer);
-            err |= clGetDeviceInfo(devices[j], CL_DEVICE_EXTENSIONS, sizeof(buffer), &buffer, NULL);
-            //WLOG("      Device Extensions: %", buffer);
-            std::string extensions(buffer);
-            bool has_spir = extensions.find("cl_khr_spir") != std::string::npos;
-            std::string spir_version;
-            #ifdef CL_DEVICE_SPIR_VERSIONS
-            if (has_spir) {
-                err |= clGetDeviceInfo(devices[j], CL_DEVICE_SPIR_VERSIONS , sizeof(buffer), &buffer, NULL);
-                spir_version = "(Version: " + std::string(buffer) + ")";
-            }
-            #endif
-            WLOG("      Device SPIR Support: % %", has_spir, spir_version);
-            //#ifdef CL_VERSION_2_0
-            if(opencl2_0)
-            {
+                assert(strstr(buffer, "OpenCL 2.") != NULL);
+
+                err |= clGetDeviceInfo(devices[j], CL_DRIVER_VERSION, sizeof(buffer), &buffer, NULL);
+                WLOG("      Device Driver Version: %", buffer);
+                err |= clGetDeviceInfo(devices[j], CL_DEVICE_EXTENSIONS, sizeof(buffer), &buffer, NULL);
+                WLOG("      Device Extensions: %", buffer);
+                std::string extensions(buffer);
+                bool has_spir = extensions.find("cl_khr_spir") != std::string::npos;
+                std::string spir_version;
+#ifdef CL_DEVICE_SPIR_VERSIONS
+                if (has_spir) {
+                    err |= clGetDeviceInfo(devices[j], CL_DEVICE_SPIR_VERSIONS , sizeof(buffer), &buffer, NULL);
+                    spir_version = "(Version: " + std::string(buffer) + ")";
+                }
+#endif
+                WLOG("      Device SPIR Support: % %", has_spir, spir_version);
+                
                 std::string svm_caps_str;
                 cl_device_svm_capabilities svm_caps;
                 err |= clGetDeviceInfo(devices[j], CL_DEVICE_SVM_CAPABILITIES, sizeof(svm_caps), &svm_caps, NULL);
@@ -103,47 +99,34 @@ OpenCLPlatform::OpenCLPlatform(Runtime* runtime)
                 if (svm_caps & CL_DEVICE_SVM_FINE_GRAIN_SYSTEM)   svm_caps_str += " CL_DEVICE_SVM_FINE_GRAIN_SYSTEM";
                 if (svm_caps & CL_DEVICE_SVM_ATOMICS)             svm_caps_str += " CL_DEVICE_SVM_ATOMICS";
                 WLOG("      Device SVM capabilities:%", svm_caps_str);
-            }//#else
-            else
-            {
-                cl_bool has_unified = false;
-                err |= clGetDeviceInfo(devices[j], CL_DEVICE_HOST_UNIFIED_MEMORY, sizeof(has_unified), &has_unified, NULL);
-                WLOG("      Device Host Unified Memory: %", has_unified);
-                //#endif
-            }
-            checkErr(err, "clGetDeviceInfo()");
+                checkErr(err, "clGetDeviceInfo()");
 
-            auto dev = devices_.size();
-            devices_.resize(dev + 1);
-            devices_[dev].platform = platform;
-            devices_[dev].dev = device;
+                auto dev = devices_.size();
+                devices_.resize(dev + 1);
+                devices_[dev].platform = platform;
+                devices_[dev].dev = device;
 
-            // create context
-            cl_context_properties ctx_props[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
-            devices_[dev].ctx = clCreateContext(ctx_props, 1, &devices_[dev].dev, NULL, NULL, &err);
-            checkErr(err, "clCreateContext()");
+                // create context
+                cl_context_properties ctx_props[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+                devices_[dev].ctx = clCreateContext(ctx_props, 1, &devices_[dev].dev, NULL, NULL, &err);
+                checkErr(err, "clCreateContext()");
 
-            // create command queue
-            //#ifdef CL_VERSION_2_0
-            if(opencl2_0)
-            {
+                // create command queue
                 cl_queue_properties queue_props[3] = { CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0 };
                 devices_[dev].queue = clCreateCommandQueueWithProperties(devices_[dev].ctx, devices_[dev].dev, queue_props, &err);
                 checkErr(err, "clCreateCommandQueueWithProperties()");
-            }//#else
-            else
-            {
-                devices_[dev].queue = clCreateCommandQueue(devices_[dev].ctx, devices_[dev].dev, CL_QUEUE_PROFILING_ENABLE, &err);
-                checkErr(err, "clCreateCommandQueue()");
-                //#endif
             }
+            delete[] devices;
         }
-        delete[] devices;
+        else
+        {
+            WLOG("OpenCL 2.0 is not supported, skipping platform");
+        }
     }
     delete[] platforms;
 }
 
-OpenCLPlatform::~OpenCLPlatform() {
+OpenCL2Platform::~OpenCL2Platform() {
     for (size_t i = 0; i < devices_.size(); i++) {
         for (auto& map : devices_[i].kernels) {
             for (auto& it : map.second) {
@@ -158,37 +141,41 @@ OpenCLPlatform::~OpenCLPlatform() {
     }
 }
 
-void* OpenCLPlatform::alloc(device_id dev, int64_t size) {
+void* OpenCL2Platform::alloc(device_id dev, int64_t size) {
     if (!size) return 0;
+    
+    cl_svm_mem_flags flags = CL_MEM_READ_WRITE | CL_MEM_SVM_FINE_GRAIN_BUFFER
+        | CL_MEM_SVM_ATOMICS;
+    void* mem = clSVMAlloc(devices_[dev].ctx, flags, size, 0);
+    checkAllocation(mem);
 
-    cl_int err = CL_SUCCESS;
-    cl_mem_flags flags = CL_MEM_READ_WRITE;
-    cl_mem mem = clCreateBuffer(devices_[dev].ctx, flags, size, NULL, &err);
-    checkErr(err, "clCreateBuffer()");
-
-    return (void*)mem;
+    std::cout << "allocated svm memory at " << mem << std::endl;
+    
+    return mem;
 }
 
-void OpenCLPlatform::release(device_id, void* ptr) {
-    cl_int err = clReleaseMemObject((cl_mem)ptr);
-    checkErr(err, "clReleaseMemObject()");
+void OpenCL2Platform::release(device_id dev, void* ptr) {
+    clSVMFree(devices_[dev].ctx, ptr);
 }
 
-void OpenCLPlatform::set_block_size(device_id dev, int32_t x, int32_t y, int32_t z) {
+void OpenCL2Platform::set_block_size(device_id dev, int32_t x, int32_t y, int32_t z) {
     auto& local_work_size = devices_[dev].local_work_size;
     local_work_size[0] = x;
     local_work_size[1] = y;
     local_work_size[2] = z;
 }
 
-void OpenCLPlatform::set_grid_size(device_id dev, int32_t x, int32_t y, int32_t z) {
+void OpenCL2Platform::set_grid_size(device_id dev, int32_t x, int32_t y, int32_t z) {
     auto& global_work_size = devices_[dev].global_work_size;
     global_work_size[0] = x;
     global_work_size[1] = y;
     global_work_size[2] = z;
 }
 
-void OpenCLPlatform::set_kernel_arg(device_id dev, int32_t arg, void* ptr, int32_t size) {
+void OpenCL2Platform::set_kernel_arg(device_id dev, int32_t arg, void* ptr, int32_t size) {
+
+    std::cout << "set_kernel_arg: " << ptr << std::endl;
+    
     auto& args = devices_[dev].kernel_args;
     auto& sizs = devices_[dev].kernel_arg_sizes;
     args.resize(std::max(arg + 1, (int32_t)args.size()));
@@ -197,7 +184,9 @@ void OpenCLPlatform::set_kernel_arg(device_id dev, int32_t arg, void* ptr, int32
     sizs[arg] = size;
 }
 
-void OpenCLPlatform::set_kernel_arg_ptr(device_id dev, int32_t arg, void* ptr) {
+void OpenCL2Platform::set_kernel_arg_ptr(device_id dev, int32_t arg, void* ptr) {
+    std::cout << "set_kernel_arg_ptr: " << ptr << std::endl;
+
     auto& vals = devices_[dev].kernel_vals;
     auto& args = devices_[dev].kernel_args;
     auto& sizs = devices_[dev].kernel_arg_sizes;
@@ -210,7 +199,7 @@ void OpenCLPlatform::set_kernel_arg_ptr(device_id dev, int32_t arg, void* ptr) {
     sizs[arg] = sizeof(cl_mem);
 }
 
-void OpenCLPlatform::set_kernel_arg_struct(device_id dev, int32_t arg, void* ptr, int32_t size) {
+void OpenCL2Platform::set_kernel_arg_struct(device_id dev, int32_t arg, void* ptr, int32_t size) {
     cl_int err = CL_SUCCESS;
     cl_mem_flags flags = CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR;
     cl_mem struct_buf = clCreateBuffer(devices_[dev].ctx, flags, size, ptr, &err);
@@ -220,7 +209,7 @@ void OpenCLPlatform::set_kernel_arg_struct(device_id dev, int32_t arg, void* ptr
     set_kernel_arg_ptr(dev, arg, (void*)buf);
 }
 
-void OpenCLPlatform::load_kernel(device_id dev, const char* file, const char* name) {
+void OpenCL2Platform::load_kernel(device_id dev, const char* file, const char* name) {
     cl_int err = CL_SUCCESS;
     cl_program program;
     auto& prog_cache = devices_[dev].programs;
@@ -289,6 +278,7 @@ void OpenCLPlatform::load_kernel(device_id dev, const char* file, const char* na
     auto& kernel_map = kernel_cache[program];
     auto kernel_it = kernel_map.find(name);
     if (kernel_it == kernel_map.end()) {
+        std::cout << "kernel name: " << name << std::endl;
         devices_[dev].kernel = clCreateKernel(program, name, &err);
         checkErr(err, "clCreateKernel()");
         kernel_map.emplace(name, devices_[dev].kernel);
@@ -300,7 +290,7 @@ void OpenCLPlatform::load_kernel(device_id dev, const char* file, const char* na
 
 extern std::atomic_llong thorin_kernel_time;
 
-void OpenCLPlatform::launch_kernel(device_id dev) {
+void OpenCL2Platform::launch_kernel(device_id dev) {
     cl_int err = CL_SUCCESS;
     cl_event event;
     cl_ulong end, start;
@@ -311,10 +301,21 @@ void OpenCLPlatform::launch_kernel(device_id dev) {
     auto& vals = devices_[dev].kernel_vals;
     auto& sizs = devices_[dev].kernel_arg_sizes;
     for (size_t i = 0; i < args.size(); i++) {
+
+        cl_int err;
+        
         // set the arguments pointers
-        if (!args[i]) args[i] = &vals[i];
-        cl_int err = clSetKernelArg(devices_[dev].kernel, i, sizs[i], args[i]);
-        checkErr(err, "clSetKernelArg()");
+        if (!args[i])
+        {
+            args[i] = vals[i];
+            err = clSetKernelArgSVMPointer(devices_[dev].kernel, i, args[i]);
+            checkErr(err, "clSetKernelArgSVMPointer()");
+        }
+        else
+        {
+            err = clSetKernelArg(devices_[dev].kernel, i, sizs[i], args[i]);
+            checkErr(err, "clSetKernelArg()");
+        }
     }
     args.clear();
     vals.clear();
@@ -342,12 +343,12 @@ void OpenCLPlatform::launch_kernel(device_id dev) {
     devices_[dev].kernel_structs.clear();
 }
 
-void OpenCLPlatform::synchronize(device_id dev) {
+void OpenCL2Platform::synchronize(device_id dev) {
     cl_int err = clFinish(devices_[dev].queue);
     checkErr(err, "clFinish()");
 }
 
-void OpenCLPlatform::copy(device_id dev_src, const void* src, int64_t offset_src, device_id dev_dst, void* dst, int64_t offset_dst, int64_t size) {
+void OpenCL2Platform::copy(device_id dev_src, const void* src, int64_t offset_src, device_id dev_dst, void* dst, int64_t offset_dst, int64_t size) {
     assert(dev_src == dev_dst);
 
     cl_int err = clEnqueueCopyBuffer(devices_[dev_src].queue, (cl_mem)src, (cl_mem)dst, offset_src, offset_dst, size, 0, NULL, NULL);
@@ -355,18 +356,14 @@ void OpenCLPlatform::copy(device_id dev_src, const void* src, int64_t offset_src
     checkErr(err, "clEnqueueCopyBuffer()");
 }
 
-void OpenCLPlatform::copy_from_host(const void* src, int64_t offset_src, device_id dev_dst, void* dst, int64_t offset_dst, int64_t size) {
-    cl_int err = clEnqueueWriteBuffer(devices_[dev_dst].queue, (cl_mem)dst, CL_FALSE, offset_dst, size, (char*)src + offset_src, 0, NULL, NULL);
-    err |= clFinish(devices_[dev_dst].queue);
-    checkErr(err, "clEnqueueWriteBuffer()");
+void OpenCL2Platform::copy_from_host(const void* src, int64_t offset_src, device_id dev_dst, void* dst, int64_t offset_dst, int64_t size) {
+    std::memcpy((char*)dst + offset_dst, (char*)src + offset_src, size);
 }
 
-void OpenCLPlatform::copy_to_host(device_id dev_src, const void* src, int64_t offset_src, void* dst, int64_t offset_dst, int64_t size) {
-    cl_int err = clEnqueueReadBuffer(devices_[dev_src].queue, (cl_mem)src, CL_FALSE, offset_src, size, (char*)dst + offset_dst, 0, NULL, NULL);
-    err |= clFinish(devices_[dev_src].queue);
-    checkErr(err, "clEnqueueReadBuffer()");
+void OpenCL2Platform::copy_to_host(device_id dev_src, const void* src, int64_t offset_src, void* dst, int64_t offset_dst, int64_t size) {
+    std::memcpy((char*)dst + offset_dst, (char*)src + offset_src, size);
 }
 
-int OpenCLPlatform::dev_count() {
+int OpenCL2Platform::dev_count() {
     return devices_.size();
 }

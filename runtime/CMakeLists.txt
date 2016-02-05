@@ -31,11 +31,20 @@ FIND_PACKAGE(OpenCL)
 IF ( OPENCL_FOUND )
     FIND_LIBRARY ( OPENCL_LIBRARY OpenCL HINTS ${OPENCL_LIBRARY_DIRS}/lib ${OPENCL_LIBRARY_DIRS}/lib64 )
     INCLUDE_DIRECTORIES ( ${OPENCL_INCLUDE_DIRS} )
+
+    SET ( OPENCL_UTILS opencl_utils.cpp opencl_utils.h )
+
     SET ( OPENCL_PLATFORM opencl_platform.cpp opencl_platform.h )
     SET ( RUNTIME_DEFINITIONS ${RUNTIME_DEFINITIONS} -DENABLE_OPENCL )
+
+    SET ( OPENCL2_PLATFORM opencl_2_platform.cpp opencl_2_platform.h )
+    SET ( RUNTIME_DEFINITIONS ${RUNTIME_DEFINITIONS} -DENABLE_OPENCL2 )
+
     SET ( CONF_RUNTIME_LIBRARIES ${CONF_RUNTIME_LIBRARIES} "${OPENCL_LIBRARY}" )
 ELSE ()
+    SET ( OPENCL_UTILS "")
     SET ( OPENCL_PLATFORM "" )
+    SET ( OPENCL2_PLATFORM "" )
 ENDIF ()
 
 # Look for TBB
@@ -67,7 +76,9 @@ ADD_LIBRARY ( thorin_runtime
               ${CMAKE_SOURCE_DIR}/src/thorin/util/stream.h
               ${CMAKE_SOURCE_DIR}/src/thorin/util/stream.cpp
               ${CUDA_PLATFORM}
-              ${OPENCL_PLATFORM} )
+              ${OPENCL_UTILS}
+              ${OPENCL_PLATFORM}
+              ${OPENCL2_PLATFORM} )
 
 # Generate the ThorinRuntime.cmake file from the template
 CONFIGURE_FILE ( cmake/ThorinRuntime.cmake.in "${CMAKE_BINARY_DIR}/cmake/ThorinRuntime.cmake" @ONLY )

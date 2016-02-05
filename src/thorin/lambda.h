@@ -70,6 +70,7 @@ enum class Intrinsic : uint8_t {
     NVVM,                       ///< Internal NNVM-Backend.
     SPIR,                       ///< Internal SPIR-Backend.
     OpenCL,                     ///< Internal OpenCL-Backend.
+    OpenCL2,                    ///< Internal OpenCL2-Backend.
     Parallel,                   ///< Internal Parallel-CPU-Backend.
     Spawn,                      ///< Internal Parallel-CPU-Backend.
     Sync,                       ///< Internal Parallel-CPU-Backend.
