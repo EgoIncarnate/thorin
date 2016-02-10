@@ -75,6 +75,13 @@ protected:
     };
 
     std::vector<DeviceData> devices_;
+
+    struct FinalizeKernelData {
+        bool is_waiting_kernel;
+        cl_event ndrange_evt;
+    };
+
+    FinalizeKernelData latest_kernel_data;
 };
 
 #endif
