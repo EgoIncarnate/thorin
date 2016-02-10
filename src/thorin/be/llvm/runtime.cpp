@@ -109,7 +109,7 @@ Lambda* Runtime::emit_host_code(CodeGen& code_gen, Platform platform, const std:
     launch_kernel(target_device);
 
     // synchronize
-    synchronize(target_device);
+    //synchronize(target_device);
 
     return lambda->arg(ACC_ARG_RETURN)->as_lambda();
 }

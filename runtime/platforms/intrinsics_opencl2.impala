@@ -83,5 +83,7 @@ fn acc_barrier() -> ()   { barrier(1u) }  // CLK_LOCAL_MEM_FENCE -> 1 // CLK_GLO
 fn acc_use_tex() -> bool { false }
 fn acc_dev() -> i32      { 0 }
 
+fn acc_sync(dev: i32) -> () { sync_opencl2(dev); }
+
 fn ldg_f32(a: &[1]f32) -> f32 { *a }
 fn ldg_i32(a: &[1]i32) -> i32 { *a }

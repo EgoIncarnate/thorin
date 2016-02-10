@@ -193,10 +193,10 @@ void Lambda::set_intrinsic() {
     else if (name == "nvvm")           intrinsic_ = Intrinsic::NVVM;
     else if (name == "spir")           intrinsic_ = Intrinsic::SPIR;
     else if (name == "opencl")         intrinsic_ = Intrinsic::OpenCL;
-    else if (name == "opencl2")        intrinsic_ = Intrinsic::OpenCL;
+    else if (name == "opencl2")        intrinsic_ = Intrinsic::OpenCL2;
     else if (name == "parallel")       intrinsic_ = Intrinsic::Parallel;
-    else if (name == "spawn")          intrinsic_ = Intrinsic::Spawn;
-    else if (name == "sync")           intrinsic_ = Intrinsic::Sync;
+    else if (name == "spawn_thread")   intrinsic_ = Intrinsic::Spawn;
+    else if (name == "sync_thread")    intrinsic_ = Intrinsic::Sync;
     else if (name == "vectorize")      intrinsic_ = Intrinsic::Vectorize;
     else if (name == "reserve_shared") intrinsic_ = Intrinsic::Reserve;
     else if (name == "atomic")         intrinsic_ = Intrinsic::Atomic;
