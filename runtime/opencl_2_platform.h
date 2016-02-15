@@ -9,6 +9,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <queue>
+#include <climits>
 
 #ifdef __APPLE__
 #include <OpenCL/cl.h>
@@ -77,8 +79,7 @@ protected:
     std::vector<DeviceData> devices_;
 
     struct FinalizeKernelData {
-        bool is_waiting_kernel;
-        cl_event ndrange_evt;
+        std::queue<cl_event> ndrange_evts;
     };
 
     FinalizeKernelData latest_kernel_data;

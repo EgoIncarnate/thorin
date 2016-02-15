@@ -57,11 +57,13 @@ fn alloc_cpu(size: i32) -> Buffer { alloc(0, size) }
 fn alloc_cuda(dev: i32, size: i32) -> Buffer { alloc(thorin_device(1, dev), size) }
 fn alloc_cuda_host(dev: i32, size: i32) -> Buffer { alloc_host(thorin_device(1, dev), size) }
 fn alloc_cuda_unified(dev: i32, size: i32) -> Buffer { alloc_unified(thorin_device(1, dev), size) }
+
 fn alloc_opencl(dev: i32, size: i32) -> Buffer { alloc(thorin_device(2, dev), size) }
 fn alloc_opencl_unified(dev: i32, size: i32) -> Buffer { alloc_unified(thorin_device(2, dev), size) }
+fn sync_opencl(dev: i32) -> () { thorin_synchronize(thorin_device(2, dev)); }
+
 fn alloc_opencl2(dev: i32, size: i32) -> Buffer { alloc(thorin_device(3, dev), size) }
 fn alloc_opencl2_unified(dev: i32, size: i32) -> Buffer { alloc_unified(thorin_device(3, dev), size) }
-
 fn sync_opencl2(dev: i32) -> () { thorin_synchronize(thorin_device(3, dev)); }
 
 fn copy(a: Buffer, b: Buffer, size: i32) -> () {
