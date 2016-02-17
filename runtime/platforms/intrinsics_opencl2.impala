@@ -64,6 +64,12 @@ fn global_offset(idx: i32) -> i32 { get_global_offset(idx as u32) as i32 }
 fn acc(dev: i32, dim: (i32, i32, i32), block: (i32, i32, i32), body: fn() -> ()) -> () { opencl2(dev, dim, block, body) }
 fn acc_alloc(dev: i32, size: i32) -> Buffer { alloc_opencl2(dev, size) }
 fn acc_alloc_unified(dev: i32, size: i32) -> Buffer { alloc_opencl2_unified(dev, size) }
+
+fn acc_map_region(dev: i32, mem: Buffer, start_byte: i32, size_bytes: i32) -> () {
+    map_region_opencl2(dev, mem, start_byte, size_bytes)
+}
+fn acc_unmap_region(dev: i32, mem: Buffer, start_byte: i32) -> () { unmap_region_opencl2(dev, mem, start_byte) }
+
 fn acc_tidx() -> i32     { get_local_id(0u) as i32 }
 fn acc_tidy() -> i32     { get_local_id(1u) as i32 }
 fn acc_tidz() -> i32     { get_local_id(2u) as i32 }

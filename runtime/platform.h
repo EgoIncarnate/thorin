@@ -32,6 +32,9 @@ public:
     /// Releases page-locked host memory for a device on this platform.
     virtual void release_host(device_id dev, void* ptr) = 0;
 
+    virtual void map_region(device_id dev, const void* ptr, int64_t start_byte, int64_t size_bytes) {}
+    virtual void unmap_region(device_id dev, const void* ptr, int64_t start_byte) {}
+
     /// Sets the kernel launch block size.
     virtual void set_block_size(device_id dev, int32_t x, int32_t y, int32_t z) = 0;
     /// Sets the kernel launch grid size.

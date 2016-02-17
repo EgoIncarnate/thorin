@@ -98,6 +98,14 @@ void thorin_release_host(int32_t mask, void* ptr) {
     runtime.release_host(to_platform(mask), to_device(mask), ptr);
 }
 
+void thorin_map_region(int32_t mask, void* ptr, int64_t start_byte, int64_t size_bytes) {
+    runtime.map_region(to_platform(mask), to_device(mask), ptr, start_byte, size_bytes);
+}
+
+void thorin_unmap_region(int32_t mask, void* ptr, int64_t start_byte) {
+    runtime.unmap_region(to_platform(mask), to_device(mask), ptr, start_byte);
+}
+
 void thorin_copy(int32_t mask_src, const void* src, int64_t offset_src,
                  int32_t mask_dst, void* dst, int64_t offset_dst, int64_t size) {
     runtime.copy(to_platform(mask_src), to_device(mask_src), src, offset_src,

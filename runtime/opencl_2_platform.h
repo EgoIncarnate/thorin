@@ -36,6 +36,10 @@ protected:
     void* alloc_host(device_id, int64_t) override { platform_error(); return nullptr; }
     void* alloc_unified(device_id, int64_t) override { platform_error(); return nullptr; }
     void* get_device_ptr(device_id, void*) override { platform_error(); return nullptr; }
+
+    void map_region(device_id dev, const void* svm_mem, int64_t start_byte, int64_t size) override;
+    void unmap_region(device_id dev, const void* svm_mem, int64_t start_byte) override;
+
     void release(device_id dev, void* ptr) override;
     void release_host(device_id, void*) override { platform_error(); }
 

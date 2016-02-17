@@ -68,6 +68,16 @@ public:
         platforms_[plat]->release_host(dev, ptr);
     }
 
+    void map_region(platform_id plat, device_id dev, void* ptr, int64_t start_byte, int64_t size_bytes) {
+        check_device(plat, dev);
+        platforms_[plat]->map_region(dev, ptr, start_byte, size_bytes);
+    }
+
+    void unmap_region(platform_id plat, device_id dev, void* ptr, int64_t start_byte) {
+        check_device(plat, dev);
+        platforms_[plat]->unmap_region(dev, ptr, start_byte);
+    }
+
     void set_block_size(platform_id plat, device_id dev, int32_t x, int32_t y, int32_t z) {
         check_device(plat, dev);
         platforms_[plat]->set_block_size(dev, x, y, z);
@@ -75,7 +85,7 @@ public:
 
     void set_grid_size(platform_id plat, device_id dev, int32_t x, int32_t y, int32_t z) {
         check_device(plat, dev);
-        platforms_[plat]->set_grid_size(dev, x, y, z); 
+        platforms_[plat]->set_grid_size(dev, x, y, z);
     }
 
     void set_kernel_arg(platform_id plat, device_id dev, int32_t arg, void* ptr, int32_t size) {

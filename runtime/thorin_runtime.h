@@ -25,6 +25,9 @@ void* thorin_get_device_ptr(int32_t, void*);
 void  thorin_release(int32_t, void*);
 void  thorin_release_host(int32_t, void*);
 
+void thorin_map_region(int32_t mask, void* ptr, int64_t start_byte, int64_t size_bytes);
+void thorin_unmap_region(int32_t mask, void* ptr, int64_t start_byte);
+
 void thorin_copy(int32_t, const void*, int64_t, int32_t, void*, int64_t, int64_t);
 
 void thorin_set_block_size(int32_t, int32_t, int32_t, int32_t);
