@@ -25,8 +25,8 @@ void* thorin_get_device_ptr(int32_t, void*);
 void  thorin_release(int32_t, void*);
 void  thorin_release_host(int32_t, void*);
 
-void thorin_map_region(int32_t mask, void* ptr, int64_t start_byte, int64_t size_bytes);
-void thorin_unmap_region(int32_t mask, void* ptr, int64_t start_byte);
+void* thorin_assign_region_to_host(int32_t mask, void* ptr, int64_t total_size, int64_t start_byte, int64_t region_size);
+void* thorin_assign_region_to_device(int32_t mask, void* ptr, int64_t total_size, int64_t start_byte, int64_t region_size);
 
 void thorin_copy(int32_t, const void*, int64_t, int32_t, void*, int64_t, int64_t);
 
@@ -43,7 +43,11 @@ float thorin_random_val();
 void thorin_random_seed(int32_t);
 
 long long thorin_get_micro_time();
+long long thorin_get_kernel_prequeue_time();
+long long thorin_get_kernel_queue_time();
+long long thorin_get_kernel_startup_time();
 long long thorin_get_kernel_time();
+long long thorin_get_kernel_postqueue_time();
 
 void thorin_print_char(char);
 void thorin_print_int(int);

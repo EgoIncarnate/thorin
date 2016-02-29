@@ -98,12 +98,12 @@ void thorin_release_host(int32_t mask, void* ptr) {
     runtime.release_host(to_platform(mask), to_device(mask), ptr);
 }
 
-void thorin_map_region(int32_t mask, void* ptr, int64_t start_byte, int64_t size_bytes) {
-    runtime.map_region(to_platform(mask), to_device(mask), ptr, start_byte, size_bytes);
+void* thorin_assign_region_to_host(int32_t mask, void* ptr, int64_t total_size, int64_t start_byte, int64_t region_size) {
+    return runtime.assign_region_to_host(to_platform(mask), to_device(mask), ptr, total_size, start_byte, region_size);
 }
 
-void thorin_unmap_region(int32_t mask, void* ptr, int64_t start_byte) {
-    runtime.unmap_region(to_platform(mask), to_device(mask), ptr, start_byte);
+void* thorin_assign_region_to_device(int32_t mask, void* ptr, int64_t total_size, int64_t start_byte, int64_t region_size) {
+    return runtime.assign_region_to_device(to_platform(mask), to_device(mask), ptr, total_size, start_byte, region_size);
 }
 
 void thorin_copy(int32_t mask_src, const void* src, int64_t offset_src,
@@ -174,10 +174,30 @@ long long thorin_get_micro_time() {
 #endif
 }
 
+std::atomic<long long> thorin_kernel_prequeue_time(0);
+std::atomic<long long> thorin_kernel_queue_time(0);
+std::atomic<long long> thorin_kernel_startup_time(0);
 std::atomic<long long> thorin_kernel_time(0);
+std::atomic<long long> thorin_kernel_postqueue_time(0);
+
+long long thorin_get_kernel_prequeue_time() {
+  return thorin_kernel_prequeue_time;
+}
+
+long long thorin_get_kernel_queue_time() {
+  return thorin_kernel_queue_time;
+}
+
+long long thorin_get_kernel_startup_time() {
+    return thorin_kernel_startup_time;
+}
 
 long long thorin_get_kernel_time() {
-    return thorin_kernel_time;
+  return thorin_kernel_time;
+}
+
+long long thorin_get_kernel_postqueue_time() {
+  return thorin_kernel_postqueue_time;
 }
 
 void thorin_print_char(char c)      { std::cout << c; }
@@ -278,13 +298,11 @@ static std::vector<int32_t> free_ids;
 class RuntimeTask : public tbb::task {
 public:
     RuntimeTask(void* args, void* fun)
-        : args_(args), fun_(fun)
-    {}
+        : args_(args), fun_(fun) {}
 
     tbb::task* execute() {
         int32_t (*fun_ptr) (void*) = reinterpret_cast<int32_t (*) (void*)>(fun_);
         fun_ptr(args_);
-        set_ref_count(1);
         return nullptr;
     }
 
@@ -302,9 +320,11 @@ int32_t thorin_spawn_thread(void* args, void* fun) {
         id = task_pool.size();
     }
 
-    tbb::task* task = new (tbb::task::allocate_root()) RuntimeTask(args, fun);
-    tbb::task::spawn(*task);
-    task_pool[id] = task;
+    tbb::task* root = new (tbb::task::allocate_root()) tbb::empty_task;
+    root->set_ref_count(2);
+    tbb::task* child = new (root->allocate_child()) RuntimeTask(args, fun);
+    root->spawn(*child);
+    task_pool[id] = root;
     return id;
 }
 

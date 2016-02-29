@@ -2,7 +2,11 @@ extern "C" {
     fn thorin_random_val() -> f32;
     fn thorin_random_seed(u32) -> ();
     fn thorin_get_micro_time() -> i64;
+    fn thorin_get_kernel_prequeue_time() -> i64;
+    fn thorin_get_kernel_queue_time() -> i64;
+    fn thorin_get_kernel_startup_time() -> i64;
     fn thorin_get_kernel_time() -> i64;
+    fn thorin_get_kernel_postqueue_time() -> i64;
 
     fn thorin_print_char(u8) -> ();
     fn thorin_print_int(i32) -> ();

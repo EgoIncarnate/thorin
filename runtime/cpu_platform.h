@@ -38,6 +38,18 @@ protected:
         release(dev, ptr);
     }
 
+    void* assign_region_to_host(device_id dev, void* mem, int64_t total_size,
+                                        int64_t start_byte, int64_t region_size) override {
+        platform_error();
+        return nullptr;
+    }
+
+    void* assign_region_to_device(device_id dev, void* mem, int64_t total_size,
+                                          int64_t start_byte, int64_t region_size) override {
+        platform_error();
+        return nullptr;
+    }
+
     void no_kernel() { ELOG("Kernels are not supported on the CPU"); }
 
     void set_block_size(device_id, int32_t, int32_t, int32_t) override { no_kernel(); }

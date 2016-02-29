@@ -1,5 +1,6 @@
 #include "opencl_2_platform.h"
 #include "runtime.h"
+#include "thorin_runtime.h"
 
 #include <algorithm>
 #include <atomic>
@@ -124,8 +125,6 @@ OpenCL2Platform::OpenCL2Platform(Runtime* runtime)
         }
     }
     delete[] platforms;
-
-    latest_kernel_data.ndrange_evts = std::queue<cl_event>();
 }
 
 OpenCL2Platform::~OpenCL2Platform() {
@@ -146,16 +145,83 @@ OpenCL2Platform::~OpenCL2Platform() {
 void* OpenCL2Platform::alloc(device_id dev, int64_t size) {
     if (!size) return 0;
 
-    cl_svm_mem_flags flags = CL_MEM_READ_WRITE | CL_MEM_SVM_FINE_GRAIN_BUFFER
-        | CL_MEM_SVM_ATOMICS;
+    cl_svm_mem_flags flags = CL_MEM_READ_WRITE;
     void* mem = clSVMAlloc(devices_[dev].ctx, flags, size, 0);
     checkAllocation(mem);
 
+    svm_objs.insert(mem);
     return mem;
 }
 
+cl_mem OpenCL2Platform::create_sub_buffer(cl_mem owner_buf, int64_t start_byte,
+                                          int64_t region_size, cl_mem_flags flags) {
+    cl_int err;
+    _cl_buffer_region region = {};
+    region.origin = start_byte;
+    region.size   = region_size;
+    cl_mem sub_buf = clCreateSubBuffer(owner_buf, flags, CL_BUFFER_CREATE_TYPE_REGION,
+                                      &region, &err);
+    checkErr(err, "clCreateSubBuffer");
+
+    return sub_buf;
+}
+
+cl_mem OpenCL2Platform::get_svm_mem_obj(device_id dev, void* svm_mem, int64_t total_size) {
+    cl_int err;
+
+    if(svm_to_mem.find(svm_mem) == svm_to_mem.end()) {
+        svm_to_mem[svm_mem] = clCreateBuffer(devices_[dev].ctx, CL_MEM_USE_HOST_PTR, total_size, svm_mem, &err);
+        checkErr(err, "clCreateBuffer");
+    }
+
+    return svm_to_mem[svm_mem];
+}
+
+void* OpenCL2Platform::assign_region_to_host(device_id dev, void* svm_mem, int64_t total_size, int64_t start_byte,
+                                                int64_t region_size) {
+    cl_int err;
+
+    cl_mem sub_buf = create_sub_buffer(get_svm_mem_obj(dev, svm_mem, total_size), start_byte, region_size,
+                                       CL_MEM_HOST_WRITE_ONLY);
+
+    void* host_ptr = clEnqueueMapBuffer(devices_[dev].queue, sub_buf, CL_TRUE, CL_MAP_WRITE_INVALIDATE_REGION , 0, region_size,
+                       0, NULL, NULL, &err);
+    checkErr(err, "clEnqueueMapBuffer");
+
+    host_region_to_mem[host_ptr] = sub_buf;
+
+    return host_ptr;
+}
+
+void* OpenCL2Platform::assign_region_to_device(device_id dev, void* svm_mem, int64_t total_size, int64_t start_byte,
+                                               int64_t region_size) {
+    cl_mem sub_buf = create_sub_buffer(get_svm_mem_obj(dev, svm_mem, total_size), start_byte, region_size, CL_MEM_WRITE_ONLY);
+
+    return (void*)sub_buf;
+}
+
 void OpenCL2Platform::release(device_id dev, void* ptr) {
-    clSVMFree(devices_[dev].ctx, ptr);
+    cl_int err;
+
+    if(svm_objs.find(ptr) != svm_objs.end()) { // release svm object
+        // if exists, release cl_mem object corresponding to svm object
+        if(svm_to_mem.find(ptr) != svm_to_mem.end()) { // release associated cl_mem object
+            release(dev, svm_to_mem[ptr]);
+            svm_to_mem.erase(ptr);
+        }
+
+        svm_objs.erase(ptr);
+        clSVMFree(devices_[dev].ctx, ptr);
+    } else if(host_region_to_mem.find(ptr) != host_region_to_mem.end()) { // release host region
+        err = clEnqueueUnmapMemObject(devices_[dev].queue, host_region_to_mem[ptr], ptr, 0, 0, 0);
+        checkErr(err, "clEnqueueUnmapMemObject()");
+        err = clReleaseMemObject(host_region_to_mem[ptr]);
+        checkErr(err, "clReleaseMemObject()");
+        host_region_to_mem.erase(ptr);
+    } else {
+        err = clReleaseMemObject((cl_mem)ptr);
+        checkErr(err, "clReleaseMemObject()");
+    }
 }
 
 void OpenCL2Platform::set_block_size(device_id dev, int32_t x, int32_t y, int32_t z) {
@@ -223,7 +289,7 @@ void OpenCL2Platform::load_kernel(device_id dev, const char* file, const char* n
         WLOG("Compiling '%' on OpenCL device %", file, dev);
 
         std::string cl_str(std::istreambuf_iterator<char>(src_file), (std::istreambuf_iterator<char>()));
-        std::string options = "-cl-fast-relaxed-math";
+        std::string options = "-cl-fast-relaxed-math -cl-std=CL2.0";
 
         const size_t length = cl_str.length();
         const char* c_str = cl_str.c_str();
@@ -283,11 +349,20 @@ void OpenCL2Platform::load_kernel(device_id dev, const char* file, const char* n
     }
 }
 
+extern std::atomic_llong thorin_kernel_prequeue_time;
+extern std::atomic_llong thorin_kernel_queue_time;
+extern std::atomic_llong thorin_kernel_startup_time;
 extern std::atomic_llong thorin_kernel_time;
+extern std::atomic_llong thorin_kernel_postqueue_time;
+
 
 void OpenCL2Platform::launch_kernel(device_id dev) {
+
+    long long host_time = thorin_get_micro_time();
     cl_int err = CL_SUCCESS;
     cl_event event;
+    cl_ulong end, start, queued;
+    float time, startup_time;
 
     // set up arguments
     auto& args = devices_[dev].kernel_args;
@@ -300,9 +375,18 @@ void OpenCL2Platform::launch_kernel(device_id dev) {
         // set the arguments pointers
         if (!args[i])
         {
-            args[i] = vals[i];
-            err = clSetKernelArgSVMPointer(devices_[dev].kernel, i, args[i]);
-            checkErr(err, "clSetKernelArgSVMPointer()");
+            if(svm_objs.find(vals[i]) != svm_objs.end())
+            {
+                args[i] = vals[i];
+                err = clSetKernelArgSVMPointer(devices_[dev].kernel, i, args[i]);
+                checkErr(err, "clSetKernelArgSVMPointer()");
+            }
+            else
+            {
+                args[i] = &vals[i];
+                cl_int err = clSetKernelArg(devices_[dev].kernel, i, sizs[i], args[i]);
+                checkErr(err, "clSetKernelArg()");
+            }
         }
         else
         {
@@ -315,57 +399,45 @@ void OpenCL2Platform::launch_kernel(device_id dev) {
     sizs.clear();
 
     // launch the kernel
+    thorin_kernel_prequeue_time.fetch_add(thorin_get_micro_time() - host_time);
+    host_time = thorin_get_micro_time();
     err = clEnqueueNDRangeKernel(devices_[dev].queue, devices_[dev].kernel, 2, NULL, devices_[dev].global_work_size, devices_[dev].local_work_size, 0, NULL, &event);
     checkErr(err, "clEnqueueNDRangeKernel()");
+    thorin_kernel_queue_time.fetch_add(thorin_get_micro_time() - host_time);
 
-    latest_kernel_data.ndrange_evts.push(event);
-    //err = clWaitForEvents(1, &event);
-    //checkErr(err, "clWaitForEvents()");
+    err = clWaitForEvents(1, &event);
+    checkErr(err, "clWaitForEvents()");
+    host_time = thorin_get_micro_time();
+
+    err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, 0);
+    err |= clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, 0);
+    err |= clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &queued, 0);
+
+    checkErr(err, "clGetEventProfilingInfo()");
+
+    time = (end-start)*1.0e-6f;
+    startup_time = (start-queued)*1.0e-6f;
+
+    thorin_kernel_time.fetch_add(time * 1000);
+    thorin_kernel_startup_time.fetch_add(startup_time * 1000);
+
+    err = clReleaseEvent(event);
+    checkErr(err, "clReleaseEvent()");
+
+    // release temporary buffers for struct arguments
+    for (cl_mem buf : devices_[dev].kernel_structs)
+        release(dev, buf);
+    devices_[dev].kernel_structs.clear();
+
+    err = clFinish(devices_[dev].queue);
+    checkErr(err, "clFinish()");
+
+    thorin_kernel_postqueue_time.fetch_add(thorin_get_micro_time() - host_time);
 }
 
 void OpenCL2Platform::synchronize(device_id dev) {
     cl_int err = clFinish(devices_[dev].queue);
     checkErr(err, "clFinish()");
-    cl_ulong max_end, min_start;
-    min_start = ULLONG_MAX;
-    max_end = 0;
-
-    while(!latest_kernel_data.ndrange_evts.empty())
-    {
-        cl_event event = latest_kernel_data.ndrange_evts.front();
-        latest_kernel_data.ndrange_evts.pop();
-        cl_ulong end, start;
-
-        err = clWaitForEvents(1, &event);
-        checkErr(err, "clWaitForEvents()");
-        err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, 0);
-        err |= clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, 0);
-        checkErr(err, "clGetEventProfilingInfo()");
-
-        if(start < min_start)
-        {
-            min_start = start;
-        }
-
-        if(end > max_end)
-        {
-            max_end = end;
-        }
-
-        err = clReleaseEvent(event);
-        checkErr(err, "clReleaseEvent()");
-
-        // TODO fix this to handle multiple kernel invokations
-        // release temporary buffers for struct arguments
-        for (cl_mem buf : devices_[dev].kernel_structs)
-            release(dev, buf);
-
-        devices_[dev].kernel_structs.clear();
-    }
-
-    float time;
-    time = (max_end-min_start)*1.0e-6f;
-    thorin_kernel_time.fetch_add(time * 1000);
 }
 
 void OpenCL2Platform::copy(device_id dev_src, const void* src, int64_t offset_src, device_id dev_dst, void* dst, int64_t offset_dst, int64_t size) {

@@ -36,6 +36,18 @@ protected:
     void release(device_id dev, void* ptr) override;
     void release_host(device_id, void*) override { platform_error(); }
 
+    void* assign_region_to_host(device_id dev, void* mem, int64_t total_size,
+                                        int64_t start_byte, int64_t region_size) override {
+        platform_error();
+        return nullptr;
+    }
+
+    void* assign_region_to_device(device_id dev, void* mem, int64_t total_size,
+                                          int64_t start_byte, int64_t region_size) override {
+        platform_error();
+        return nullptr;
+    }
+
     void set_block_size(device_id dev, int32_t x, int32_t y, int32_t z) override;
     void set_grid_size(device_id dev, int32_t x, int32_t y, int32_t z) override;
     void set_kernel_arg(device_id dev, int32_t arg, void* ptr, int32_t size) override;

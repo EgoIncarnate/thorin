@@ -6,6 +6,8 @@
 #include "opencl_utils.h"
 
 #include <list>
+#include <map>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -37,8 +39,10 @@ protected:
     void* alloc_unified(device_id, int64_t) override { platform_error(); return nullptr; }
     void* get_device_ptr(device_id, void*) override { platform_error(); return nullptr; }
 
-    void map_region(device_id dev, const void* svm_mem, int64_t start_byte, int64_t size) override;
-    void unmap_region(device_id dev, const void* svm_mem, int64_t start_byte) override;
+    cl_mem create_sub_buffer(cl_mem owner_buf, int64_t start_byte, int64_t region_size, cl_mem_flags flags);
+    cl_mem get_svm_mem_obj(device_id dev, void* svm_mem, int64_t total_size);
+    void* assign_region_to_host(device_id dev, void* svm_mem, int64_t total_size, int64_t start_byte, int64_t region_size) override;
+    void* assign_region_to_device(device_id dev, void* svm_mem, int64_t total_size, int64_t start_byte, int64_t region_size) override;
 
     void release(device_id dev, void* ptr) override;
     void release_host(device_id, void*) override { platform_error(); }
@@ -82,11 +86,9 @@ protected:
 
     std::vector<DeviceData> devices_;
 
-    struct FinalizeKernelData {
-        std::queue<cl_event> ndrange_evts;
-    };
-
-    FinalizeKernelData latest_kernel_data;
+    std::map<void*, cl_mem> svm_to_mem;
+    std::set<const void*> svm_objs;
+    std::map<void*, cl_mem> host_region_to_mem;
 };
 
 #endif

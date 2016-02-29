@@ -8,8 +8,8 @@ extern "C" {
     fn thorin_release(i32, &i8) -> ();
     fn thorin_release_host(i32, &i8) -> ();
 
-    fn thorin_map_region(i32, &i8, i64, i64) -> ();
-    fn thorin_unmap_region(i32, &i8, i64) -> ();
+    fn thorin_assign_region_to_host(i32, &i8, i64, i64, i64) -> &i8;
+    fn thorin_assign_region_to_device(i32, &i8, i64, i64, i64) -> &i8;
 
     fn thorin_synchronize(i32) -> ();
 
@@ -19,7 +19,11 @@ extern "C" {
     fn thorin_random_seed(u32) -> ();
 
     fn thorin_get_micro_time() -> i64;
+    fn thorin_get_kernel_queue_time() -> i64;
+    fn thorin_get_kernel_prequeue_time() -> i64;
+    fn thorin_get_kernel_startup_time() -> i64;
     fn thorin_get_kernel_time() -> i64;
+    fn thorin_get_kernel_postqueue_time() -> i64;
 
     fn thorin_print_char(u8) -> ();
     fn thorin_print_int(i32) -> ();
@@ -67,11 +71,21 @@ fn sync_opencl(dev: i32) -> () { thorin_synchronize(thorin_device(2, dev)); }
 
 fn alloc_opencl2(dev: i32, size: i32) -> Buffer { alloc(thorin_device(3, dev), size) }
 fn alloc_opencl2_unified(dev: i32, size: i32) -> Buffer { alloc_unified(thorin_device(3, dev), size) }
-fn map_region_opencl2(dev: i32, mem: Buffer, start_byte: i32, size_bytes: i32) -> () {
-    thorin_map_region(thorin_device(3, dev), mem.data as &i8, start_byte as i64, size_bytes as i64);
+
+fn assign_region_to_host_opencl2(dev: i32, mem: Buffer, total_size: i32, start_byte: i32, size_bytes: i32) -> Buffer {
+    Buffer {
+        device: thorin_device(3, dev),
+        data: thorin_assign_region_to_host(thorin_device(3, dev), mem.data as &i8, total_size as i64,
+                                           start_byte as i64, size_bytes as i64) as &[i8]
+    }
 }
-fn unmap_region_opencl2(dev: i32, mem: Buffer, start_byte: i32) -> () {
-    thorin_unmap_region(thorin_device(3, dev), mem.data as &i8, start_byte as i64);
+
+fn assign_region_to_device_opencl2(dev: i32, mem: Buffer, total_size: i32, start_byte: i32, size_bytes: i32) -> Buffer {
+    Buffer {
+        device: thorin_device(3, dev),
+        data: thorin_assign_region_to_device(thorin_device(3, dev), mem.data as &i8, total_size as i64,
+                                           start_byte as i64, size_bytes as i64) as &[i8]
+    }
 }
 fn sync_opencl2(dev: i32) -> () { thorin_synchronize(thorin_device(3, dev)); }
 

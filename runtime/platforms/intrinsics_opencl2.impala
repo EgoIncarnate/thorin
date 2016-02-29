@@ -65,10 +65,13 @@ fn acc(dev: i32, dim: (i32, i32, i32), block: (i32, i32, i32), body: fn() -> ())
 fn acc_alloc(dev: i32, size: i32) -> Buffer { alloc_opencl2(dev, size) }
 fn acc_alloc_unified(dev: i32, size: i32) -> Buffer { alloc_opencl2_unified(dev, size) }
 
-fn acc_map_region(dev: i32, mem: Buffer, start_byte: i32, size_bytes: i32) -> () {
-    map_region_opencl2(dev, mem, start_byte, size_bytes)
+fn acc_assign_region_to_host(dev: i32, mem: Buffer, total_size: i32, start_byte: i32, region_size: i32) -> Buffer {
+    assign_region_to_host_opencl2(dev, mem, total_size, start_byte, region_size)
 }
-fn acc_unmap_region(dev: i32, mem: Buffer, start_byte: i32) -> () { unmap_region_opencl2(dev, mem, start_byte) }
+
+fn acc_assign_region_to_device(dev: i32, mem: Buffer, total_size: i32, start_byte: i32, region_size: i32) -> Buffer {
+    assign_region_to_device_opencl2(dev, mem, total_size, start_byte, region_size)
+}
 
 fn acc_tidx() -> i32     { get_local_id(0u) as i32 }
 fn acc_tidy() -> i32     { get_local_id(1u) as i32 }
@@ -88,6 +91,7 @@ fn acc_gidz() -> i32     { get_global_id(2u) as i32 }
 fn acc_barrier() -> ()   { barrier(1u) }  // CLK_LOCAL_MEM_FENCE -> 1 // CLK_GLOBAL_MEM_FENCE -> 2
 fn acc_use_tex() -> bool { false }
 fn acc_dev() -> i32      { 0 }
+fn cpu_dev() -> i32      { 1 }
 
 fn acc_sync(dev: i32) -> () { sync_opencl2(dev); }
 
