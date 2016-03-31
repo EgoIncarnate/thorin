@@ -265,8 +265,8 @@ void OpenCLPlatform::load_kernel(device_id dev, const char* file, const char* na
             // get the options and log
             err |= clGetProgramBuildInfo(program, devices_[dev].dev, CL_PROGRAM_BUILD_OPTIONS, options_size, program_build_options, NULL);
             err |= clGetProgramBuildInfo(program, devices_[dev].dev, CL_PROGRAM_BUILD_LOG, log_size, program_build_log, NULL);
-            WLOG("OpenCL build options : %", program_build_options);
-            WLOG("OpenCL build log : %", program_build_log);
+            ILOG("OpenCL build options : %", program_build_options);
+            ILOG("OpenCL build log : %", program_build_log);
 
             // free memory for options and log
             delete[] program_build_options;
