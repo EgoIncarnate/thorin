@@ -320,7 +320,7 @@ int32_t thorin_spawn_thread(void* args, void* fun) {
         id = task_pool.size();
     }
 
-    tbb::task* root = new (tbb::task::allocate_root()) tbb::empty_task;
+    tbb::task* root = new (tbb::task::allocate_root()) RuntimeTask(args, fun);
     root->set_ref_count(2);
     tbb::task* child = new (root->allocate_child()) RuntimeTask(args, fun);
     root->spawn(*child);
