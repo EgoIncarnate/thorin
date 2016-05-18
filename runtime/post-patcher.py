@@ -153,6 +153,55 @@ nvvm_defs = {
         }", "=r, r" (i32 %a)
     ret i32 %1
 }
+""",
+  "shfldown" : """define float @shfldown(float %a, i32 %b, i32 %c) {
+    %1 = call float asm "shfl.down.b32 $0, $1, $2, $3;", "=f, f, r, r" (float %a, i32 %b, i32 %c)
+    ret float %1
+}
+""",
+  "shflup" : """define float @shflup(float %a, i32 %b, i32 %c) {
+    %1 = call float asm "shfl.up.b32 $0, $1, $2, $3;", "=f, f, r, r" (float %a, i32 %b, i32 %c)
+    ret float %1
+}
+""",
+  "shflidx" : """define float @shflidx(float %a, i32 %b, i32 %c) {
+    %1 = call float asm "shfl.idx.b32 $0, $1, $2, $3;", "=f, f, r, r" (float %a, i32 %b, i32 %c)
+    ret float %1
+}
+""",
+  "reduce_step" : """define float @reduce_step(float %a, i32 %b, i32 %c) {
+    %1 = call float asm
+     "{ .reg .pred p;
+        .reg .f32 r0;
+        shfl.down.b32 r0|p, $1, $2, $3;
+        @p add.f32 r0, r0, $1;
+        mov.f32 $0, r0;
+     }", "=f, f, r, r" (float %a, i32 %b, i32 %c)
+
+    ret float %1
+}
+""",
+  "scan_step": """define float @scan_step(float %a, i32 %b, i32 %c) {
+    %1 = call float asm
+      "{ .reg .f32 r0;
+         .reg .pred p;
+         shfl.up.b32 r0|p, $1, $2, $3;
+         @p add.f32 r0, r0, $1;
+         mov.f32 $0, r0;
+      }", "=f, f, r, r" (float %a, i32 %b, i32 %c)
+
+      ret float %1
+}
+""",
+  "lane_id" : """define i32 @lane_id() {
+    %1 = call i32 asm "mov.u32 $0, %laneid;", "=r" ()
+    ret i32 %1
+}
+""",
+  "clock" : """define i64 @clock() {
+    %1 = call i64 asm sideeffect "mov.u32 $0, %clock;", "=r" ()
+    ret i64 %1
+}
 """
 }
 
@@ -164,7 +213,7 @@ if rttype == "nvvm":
             for line in f:
                 matched = False
 
-                for (func, code) in nvvm_defs.iteritems():
+                for (func, code) in nvvm_defs.items():
                     m = re.match('^declare (.*) (@' + func + ')\((.*)\)\n$', line)
                     if m is not None:
                         result.append(code)
@@ -177,4 +226,3 @@ if rttype == "nvvm":
         with open(filename, "w") as f:
             for line in result:
                 f.write(line)
-
