@@ -91,7 +91,7 @@ MACRO ( THORIN_RUNTIME_WRAP outfiles )
         COMMAND ${PYTHON_BIN} ${THORIN_RUNTIME_DIR}/post-patcher.py ${TRW_BACKEND} ${CMAKE_CURRENT_BINARY_DIR}/${_basename}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         DEPENDS ${IMPALA_BIN} ${THORIN_LIBRARY} ${PYTHON_BIN} ${THORIN_RUNTIME_DIR}/post-patcher.py ${_impala_platform} ${_infiles} VERBATIM )
-    
+
     # Generate .bc files for SPIR
     IF ( "${TRW_BACKEND}" STREQUAL "spir" )
         SET ( _spirfile ${CMAKE_CURRENT_BINARY_DIR}/${_basename}.spir )

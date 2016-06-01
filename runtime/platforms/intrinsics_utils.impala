@@ -6,6 +6,8 @@ extern "C" {
 
     fn thorin_print_char(u8) -> ();
     fn thorin_print_int(i32) -> ();
+    fn thorin_print_uint(u32) -> ();
+    fn thorin_print_uint_as_hex(u32) -> ();
     fn thorin_print_long(i64) -> ();
     fn thorin_print_float(f32) -> ();
     fn thorin_print_double(f64) -> ();

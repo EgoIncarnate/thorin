@@ -362,7 +362,16 @@ extern "C" {
     fn ldg4_f32(&simd[f32 * 4]) -> simd[f32 * 4];
     fn ldg4_i32(&simd[i32 * 4]) -> simd[i32 * 4];
     fn ballot(i32) -> i32;
+    fn shfldown(a: f32, b: i32, c: i32) -> f32;
+    fn shflup(a: f32, b: i32, c: i32) -> f32;
+    fn shflidx(a: f32, b: i32, c: i32) -> f32;
+    fn shflidx_u32(a: u32, b: i32, c: i32) -> u32;
+    fn scan_step(a: f32, b: i32, c: i32) -> f32;
+    fn scan_step_u32(a: i32, b: i32, c: i32) -> i32;
+    fn reduce_step(a: f32, b: i32, c: i32) -> f32;
+    fn lane_id() -> i32;
+    fn clock() -> i64;
+    fn bfe(a: i32, b: i32, c: i32) -> i32;
 }
 
 fn popcount(i: i32) -> i32 { nvvm_popc_i(i) }
-

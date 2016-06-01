@@ -364,7 +364,7 @@ void CudaPlatform::compile_nvvm(device_id dev, const char* file_name, CUjit_targ
             libdevice_file_name = "libdevice.compute_35.10.bc"; break;
     }
 
-    std::ifstream libdevice_file(std::string(LIBDEVICE_DIR) + libdevice_file_name);
+    std::ifstream libdevice_file(std::string(LIBDEVICE_DIR) + libdevice_file_name, std::ifstream::binary);
     if (!libdevice_file.is_open())
         ELOG("Can't open libdevice source file '%'", libdevice_file_name);
 

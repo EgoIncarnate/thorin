@@ -44,6 +44,8 @@ long long thorin_get_kernel_time();
 
 void thorin_print_char(char);
 void thorin_print_int(int);
+void thorin_print_uint(unsigned int);
+void thorin_print_uint_as_hex(unsigned int);
 void thorin_print_long(long long);
 void thorin_print_float(float);
 void thorin_print_double(double);

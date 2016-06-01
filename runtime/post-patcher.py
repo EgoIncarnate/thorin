@@ -145,6 +145,11 @@ nvvm_defs = {
     ret float %1
 }
 """,
+  "shflidx_u32" : """define u32 @shflidx(u32 %a, i32 %b, i32 %c) {
+    %1 = call u32 asm "shfl.idx.b32 $0, $1, $2, $3;", "=r, r, r, r" (u32 %a, i32 %b, i32 %c)
+    ret u32 %1
+}
+""",
   "reduce_step" : """define float @reduce_step(float %a, i32 %b, i32 %c) {
     %1 = call float asm
      "{ .reg .pred p;
@@ -169,6 +174,18 @@ nvvm_defs = {
       ret float %1
 }
 """,
+  "scan_step_u32": """define i32 @scan_step_u32(i32 %a, i32 %b, i32 %c) {
+    %1 = call i32 asm
+      "{ .reg .u32 r0;
+         .reg .pred p;
+         shfl.up.b32 r0|p, $1, $2, $3;
+         @p add.u32 r0, r0, $1;
+         mov.u32 $0, r0;
+      }", "=r, r, r, r" (i32 %a, i32 %b, i32 %c)
+
+      ret i32 %1
+}
+""",
   "lane_id" : """define i32 @lane_id() {
     %1 = call i32 asm "mov.u32 $0, %laneid;", "=r" ()
     ret i32 %1
@@ -177,6 +194,11 @@ nvvm_defs = {
   "clock" : """define i64 @clock() {
     %1 = call i64 asm sideeffect "mov.u32 $0, %clock;", "=r" ()
     ret i64 %1
+}
+""",
+  "bfe" : """define i32 @bfe(i32 %a, i32 %b, i32 %c) {
+    %1 = call i32 asm sideeffect "bfe.u32 $0, $1, $2, $3;", "=r, r, r, r" (i32 %a, i32 %b, i32 %c)
+    ret i32 %1
 }
 """
 }

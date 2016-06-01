@@ -133,7 +133,7 @@ OpenCLPlatform::OpenCLPlatform(Runtime* runtime)
         cl_device_id* devices = new cl_device_id[num_devices];
         err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, num_devices, devices, &num_devices);
         checkErr(err, "clGetDeviceIDs()");
-
+        
         // get device info for each device
         for (size_t j=0; j<num_devices; ++j) {
             auto device = devices[j];

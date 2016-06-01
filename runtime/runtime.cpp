@@ -164,12 +164,14 @@ long long thorin_get_kernel_time() {
     return thorin_kernel_time;
 }
 
-void thorin_print_char(char c)      { std::cout << c; }
-void thorin_print_int(int i)        { std::cout << i; }
-void thorin_print_long(long long l) { std::cout << l; }
-void thorin_print_float(float f)    { std::cout << f; }
-void thorin_print_double(double d)  { std::cout << d; }
-void thorin_print_string(char* s)   { std::cout << s; }
+void thorin_print_char(char c)          { std::cout << c; }
+void thorin_print_int(int i)            { std::cout << i; }
+void thorin_print_uint(unsigned int i)  { std::cout << i; }
+void thorin_print_uint_as_hex(unsigned int i)  { std::cout << std::hex << i << std::dec; }
+void thorin_print_long(long long l)     { std::cout << l; }
+void thorin_print_float(float f)        { std::cout << f; }
+void thorin_print_double(double d)      { std::cout << d; }
+void thorin_print_string(char* s)       { std::cout << s; }
 
 #if defined(__APPLE__) && defined(__clang__) || defined(_MSC_VER)
 #pragma message("Runtime random function is not thread-safe")
