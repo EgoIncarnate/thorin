@@ -150,7 +150,7 @@ nvvm_defs = {
     ret u32 %1
 }
 """,
-  "reduce_step" : """define float @reduce_step(float %a, i32 %b, i32 %c) {
+  "shfldn_add" : """define float @shfldn_add(float %a, i32 %b, i32 %c) {
     %1 = call float asm
      "{ .reg .pred p;
         .reg .f32 r0;
@@ -162,7 +162,7 @@ nvvm_defs = {
     ret float %1
 }
 """,
-  "scan_step": """define float @scan_step(float %a, i32 %b, i32 %c) {
+  "shflup_add": """define float @shflup_add(float %a, i32 %b, i32 %c) {
     %1 = call float asm
       "{ .reg .f32 r0;
          .reg .pred p;
@@ -174,7 +174,7 @@ nvvm_defs = {
       ret float %1
 }
 """,
-  "scan_step_u32": """define i32 @scan_step_u32(i32 %a, i32 %b, i32 %c) {
+  "shflup_add_u32": """define i32 @shflup_add_u32(i32 %a, i32 %b, i32 %c) {
     %1 = call i32 asm
       "{ .reg .u32 r0;
          .reg .pred p;
