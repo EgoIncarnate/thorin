@@ -53,6 +53,10 @@ protected:
 
     std::string name() override { return "OpenCL"; }
 
+    void rename_last_kernel(std::string new_name) override;
+    int get_max_occupancy(device_id dev, std::string kernel_name, int block_threads) override;
+    int get_dev_attribute(device_id dev, int attr) override;
+
     typedef std::unordered_map<std::string, cl_kernel> KernelMap;
 
     struct DeviceData {

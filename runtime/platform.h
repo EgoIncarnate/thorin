@@ -61,6 +61,9 @@ public:
     /// Returns the platform name.
     virtual std::string name() = 0;
 
+    virtual void rename_last_kernel(std::string new_name) = 0;
+    virtual int get_max_occupancy(device_id dev, std::string kernel_name, int block_threads) = 0;
+    virtual int get_dev_attribute(device_id dev, int attr) = 0;
 protected:
     void platform_error() {
         ELOG("The selected platform is not available");

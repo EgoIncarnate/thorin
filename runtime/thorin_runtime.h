@@ -36,6 +36,10 @@ void thorin_load_kernel(int32_t, const char*, const char*);
 void thorin_launch_kernel(int32_t);
 void thorin_synchronize(int32_t);
 
+void thorin_rename_last_kernel(int32_t mask, char* new_name);
+int thorin_get_max_occupancy(int32_t mask, char* kernel_name, int block_threads);
+int thorin_get_dev_attribute(int32_t mask, int attr);
+
 float thorin_random_val();
 void thorin_random_seed(int32_t);
 

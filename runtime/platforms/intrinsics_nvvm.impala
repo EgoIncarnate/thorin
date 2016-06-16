@@ -332,6 +332,18 @@ fn acc_barrier() -> ()   { nvvm_barrier0() }
 fn acc_use_tex() -> bool { true }
 fn acc_dev() -> i32      { 0 }
 
+fn rename_last_kernel(dev: i32, name: &[u8]) -> () {
+    thorin_rename_last_kernel(thorin_device(1, dev), name);
+}
+
+fn get_max_occupancy(dev: i32, name: &[u8], block_threads: i32) -> i32 {
+    thorin_get_max_occupancy(thorin_device(1, dev), name, block_threads)
+}
+
+fn get_dev_attribute(dev: i32, attr: i32) -> i32 {
+    thorin_get_dev_attribute(thorin_device(1, dev), attr)
+}
+
 // kind: Xchg Add Sub And Nand Or Xor Max Min
 fn atomic_xchg(a: &i32, b: i32) -> i32 { atomic(0u, a, b) }
 fn atomic_add(a: &i32, b: i32) -> i32 { atomic(1u, a, b) }

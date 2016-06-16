@@ -10,6 +10,10 @@ extern "C" {
 
     fn thorin_copy(i32, &i8, i64, i32, &i8, i64, i64) -> ();
 
+    fn thorin_rename_last_kernel(i32, &[u8]) -> ();
+    fn thorin_get_max_occupancy(dev: i32, name: &[u8], block_threads: i32) -> i32;
+    fn thorin_get_dev_attribute(dev: i32, attr: i32) -> i32;
+
     fn thorin_random_val() -> f32;
     fn thorin_random_seed(u32) -> ();
 

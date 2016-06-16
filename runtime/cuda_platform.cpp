@@ -244,6 +244,7 @@ void CudaPlatform::load_kernel(device_id dev, const char* file, const char* name
             ELOG("Function '%' is not present in '%'", name, file);
         func_map.emplace(name, func);
         devices_[dev].kernel = func;
+        last_kernel = {mod, name};
     } else {
         devices_[dev].kernel = func_it->second;
     }
@@ -511,4 +512,37 @@ void CudaPlatform::create_module(device_id dev, const char* file_name, CUjit_tar
     checkErrDrv(err, "cuModuleLoadDataEx()");
 
     devices_[dev].modules[file_name] = mod;
+}
+
+void CudaPlatform::rename_last_kernel(std::string new_name) {
+    renamed_kernels[new_name] = last_kernel;
+}
+
+int CudaPlatform::get_max_occupancy(device_id dev, std::string kernel_name, int block_threads) {
+    int num_blocks;
+    auto& mod = renamed_kernels[kernel_name].mod;
+    auto& thorin_name = renamed_kernels[kernel_name].thorin_name;
+
+    auto& func_cache = devices_[dev].functions;
+    auto& func_map = func_cache[mod];
+    auto func_it = func_map.find(thorin_name);
+
+    if (func_it == func_map.end()) {
+        ELOG("Couldn't find a kernel that was renamed as '%'", kernel_name);
+    }
+
+    CUresult err = cuOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks, func_it->second, block_threads, 0);
+    checkErrDrv(err, "cuOccupancyMaxActiveBlocksPerMultiprocessor()");
+
+    return num_blocks;
+}
+
+int CudaPlatform::get_dev_attribute(device_id dev, int attr) {
+    assert(attr >= 1 && attr <= 85);
+
+    int attr_val;
+    CUresult err = cuDeviceGetAttribute(&attr_val, (CUdevice_attribute)attr, devices_[dev].dev);
+    checkErrDrv(err, "cuDeviceGetAttribute()");
+
+    return attr_val;
 }

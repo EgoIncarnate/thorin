@@ -95,6 +95,18 @@ fn acc_barrier() -> ()   { __syncthreads() }
 fn acc_use_tex() -> bool { true }
 fn acc_dev() -> i32      { 0 }
 
+fn rename_last_kernel(dev: i32, name: &[u8]) -> () {
+    thorin_rename_last_kernel(thorin_device(1, dev), name);
+}
+
+fn get_max_occupancy(dev: i32, name: &[u8], block_threads: i32) -> i32 {
+    thorin_get_max_occupancy(thorin_device(1, dev), name, block_threads)
+}
+
+fn get_dev_attribute(dev: i32, attr: i32) -> i32 {
+    thorin_get_dev_attribute(thorin_device(1, dev), attr)
+}
+
 fn ldg_f32(a: &[1]f32) -> f32 { __ldg_f32(a) }
 fn ldg_i32(a: &[1]i32) -> i32 { __ldg_i32(a) }
 fn ldg4_f32(a: &simd[f32 * 4]) -> simd[f32 * 4] { __ldg4_f32(a) }
@@ -105,4 +117,3 @@ fn minmax(a: i32, b: i32, c: i32) -> i32 { max(min(a, b), c) }
 fn maxmin(a: i32, b: i32, c: i32) -> i32 { min(max(a, b), c) }
 fn madf(a: f32, b: f32, c: f32) -> f32 { fmaf(a, b, c) }
 fn mad(a: f64, b: f64, c: f64) -> f64 { fma(a, b, c) }
-

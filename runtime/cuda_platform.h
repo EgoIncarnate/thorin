@@ -55,6 +55,11 @@ protected:
 
     std::string name() override { return "CUDA"; }
 
+    void rename_last_kernel(std::string new_name) override;
+
+    int get_max_occupancy(device_id dev, std::string kernel_name, int block_threads) override;
+    int get_dev_attribute(device_id dev, int attr) override;
+
     typedef std::unordered_map<std::string, CUfunction> FunctionMap;
 
     struct DeviceData {
@@ -73,6 +78,11 @@ protected:
         std::unordered_map<CUmodule, FunctionMap> functions;
     };
 
+    struct KernelData {
+        CUmodule mod;
+        std::string thorin_name;
+    };
+
     std::vector<DeviceData> devices_;
 
     void checkCudaErrors(CUresult err, const char*, const char*, const int);
@@ -84,6 +94,10 @@ protected:
     void compile_nvvm(device_id dev, const char* file_name, CUjit_target target_cc);
     void compile_cuda(device_id dev, const char* file_name, CUjit_target target_cc);
     void create_module(device_id dev, const char* file_name, CUjit_target target_cc, const void* ptx);
+
+private:
+    KernelData last_kernel;
+    std::unordered_map<std::string, KernelData> renamed_kernels;
 };
 
 #endif

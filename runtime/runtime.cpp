@@ -124,6 +124,18 @@ void thorin_launch_kernel(int32_t mask) {
     runtime.launch_kernel(to_platform(mask), to_device(mask));
 }
 
+void thorin_rename_last_kernel(int32_t mask, char* new_name) {
+    runtime.rename_last_kernel(to_platform(mask), to_device(mask), new_name);
+}
+
+int thorin_get_max_occupancy(int32_t mask, char* kernel_name, int block_threads) {
+    return runtime.get_max_occupancy(to_platform(mask), to_device(mask), kernel_name, block_threads);
+}
+
+int thorin_get_dev_attribute(int32_t mask, int attr) {
+    return runtime.get_dev_attribute(to_platform(mask), to_device(mask), attr);
+}
+
 void thorin_synchronize(int32_t mask) {
     runtime.synchronize(to_platform(mask), to_device(mask));
 }

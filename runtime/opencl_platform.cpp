@@ -133,7 +133,7 @@ OpenCLPlatform::OpenCLPlatform(Runtime* runtime)
         cl_device_id* devices = new cl_device_id[num_devices];
         err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, num_devices, devices, &num_devices);
         checkErr(err, "clGetDeviceIDs()");
-        
+        num_devices = 0;
         // get device info for each device
         for (size_t j=0; j<num_devices; ++j) {
             auto device = devices[j];
@@ -440,4 +440,21 @@ void OpenCLPlatform::copy_to_host(device_id dev_src, const void* src, int64_t of
 
 int OpenCLPlatform::dev_count() {
     return devices_.size();
+}
+
+void OpenCLPlatform::rename_last_kernel(std::string new_name) {
+    // TODO
+    platform_error();
+}
+
+int OpenCLPlatform::get_max_occupancy(device_id dev, std::string kernel_name, int block_threads) {
+    // TODO
+    platform_error();
+    return 0;
+}
+
+int OpenCLPlatform::get_dev_attribute(device_id dev, int attr) {
+    // TODO
+    platform_error();
+    return 0;
 }

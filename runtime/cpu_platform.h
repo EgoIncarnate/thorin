@@ -69,6 +69,18 @@ protected:
     int dev_count() override { return 1; }
 
     std::string name() override { return "CPU"; }
+
+    void rename_last_kernel(std::string new_name) override { platform_error(); }
+
+    int get_max_occupancy(device_id dev, std::string kernel_name, int block_threads) override {
+        platform_error();
+        return 0;
+    }
+
+    int get_dev_attribute(device_id dev, int attr) override {
+        platform_error();
+        return 0;
+    }
 };
 
 #endif
