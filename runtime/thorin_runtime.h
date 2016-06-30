@@ -40,6 +40,10 @@ void thorin_rename_last_kernel(int32_t mask, char* new_name);
 int thorin_get_max_occupancy(int32_t mask, char* kernel_name, int block_threads);
 int thorin_get_dev_attribute(int32_t mask, int attr);
 
+void thorin_device_timer_start(int32_t mask);
+void thorin_device_timer_stop(int32_t mask);
+float thorin_device_timer_ellapsed_millis(int32_t mask);
+
 float thorin_random_val();
 void thorin_random_seed(int32_t);
 

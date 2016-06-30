@@ -458,3 +458,19 @@ int OpenCLPlatform::get_dev_attribute(device_id dev, int attr) {
     platform_error();
     return 0;
 }
+
+void OpenCLPlatform::device_timer_start(device_id dev) {
+    // TODO
+    platform_error();
+}
+
+void OpenCLPlatform::device_timer_stop(device_id dev) {
+    // TODO
+    platform_error();
+}
+
+float OpenCLPlatform::device_timer_ellapsed_millis(device_id dev) {
+    // TODO
+    platform_error();
+    return 0.0f;
+}

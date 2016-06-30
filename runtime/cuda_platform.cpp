@@ -102,6 +102,11 @@ CudaPlatform::CudaPlatform(Runtime* runtime)
         checkErrDrv(err, "cuEventCreate()");
         err = cuEventCreate(&devices_[i].end_kernel, CU_EVENT_DEFAULT);
         checkErrDrv(err, "cuEventCreate()");
+
+        err = cuEventCreate(&devices_[i].start_device, CU_EVENT_DEFAULT);
+        checkErrDrv(err, "cuEventCreate()");
+        err = cuEventCreate(&devices_[i].stop_device, CU_EVENT_DEFAULT);
+        checkErrDrv(err, "cuEventCreate()");
     }
 }
 
@@ -110,6 +115,9 @@ CudaPlatform::~CudaPlatform() {
         cuEventDestroy(devices_[i].start_kernel);
         cuEventDestroy(devices_[i].end_kernel);
         cuCtxDestroy(devices_[i].ctx);
+
+        cuEventDestroy(devices_[i].start_device);
+        cuEventDestroy(devices_[i].stop_device);
     }
 }
 
@@ -545,4 +553,22 @@ int CudaPlatform::get_dev_attribute(device_id dev, int attr) {
     checkErrDrv(err, "cuDeviceGetAttribute()");
 
     return attr_val;
+}
+
+void CudaPlatform::device_timer_start(device_id dev) {
+    auto& cuda_dev = devices_[dev];
+    cuEventRecord(cuda_dev.start_device, 0);
+}
+
+void CudaPlatform::device_timer_stop(device_id dev) {
+    auto& cuda_dev = devices_[dev];
+    cuEventRecord(cuda_dev.stop_device, 0);
+}
+
+float CudaPlatform::device_timer_ellapsed_millis(device_id dev) {
+    auto& cuda_dev = devices_[dev];
+    float elapsed;
+    cuEventSynchronize(cuda_dev.stop_device);
+    cuEventElapsedTime(&elapsed, cuda_dev.start_device, cuda_dev.stop_device);
+    return elapsed;
 }

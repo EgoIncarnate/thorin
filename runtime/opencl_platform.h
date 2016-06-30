@@ -57,6 +57,10 @@ protected:
     int get_max_occupancy(device_id dev, std::string kernel_name, int block_threads) override;
     int get_dev_attribute(device_id dev, int attr) override;
 
+    void device_timer_start(device_id dev) override;
+    void device_timer_stop(device_id dev) override;
+    float device_timer_ellapsed_millis(device_id dev) override;
+
     typedef std::unordered_map<std::string, cl_kernel> KernelMap;
 
     struct DeviceData {

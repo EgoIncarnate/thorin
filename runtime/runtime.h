@@ -147,6 +147,22 @@ public:
         check_device(plat, dev);
         return platforms_[plat]->get_dev_attribute(dev, attr);
     }
+
+    void device_timer_start(platform_id plat, device_id dev) {
+        check_device(plat, dev);
+        platforms_[plat]->device_timer_start(dev);
+    }
+
+    void device_timer_stop(platform_id plat, device_id dev) {
+        check_device(plat, dev);
+        platforms_[plat]->device_timer_stop(dev);
+    }
+
+    float device_timer_ellapsed_millis(platform_id plat, device_id dev) {
+        check_device(plat, dev);
+        return platforms_[plat]->device_timer_ellapsed_millis(dev);
+    }
+
 private:
     void check_device(platform_id plat, device_id dev) {
         assert((int)dev < platforms_[plat]->dev_count() && "Invalid device");

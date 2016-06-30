@@ -81,6 +81,15 @@ protected:
         platform_error();
         return 0;
     }
+
+    void device_timer_start(device_id dev) override { platform_error(); }
+
+    void device_timer_stop(device_id dev) override { platform_error(); }
+
+    float device_timer_ellapsed_millis(device_id dev) override {
+        platform_error();
+        return 0.0f;
+    }
 };
 
 #endif

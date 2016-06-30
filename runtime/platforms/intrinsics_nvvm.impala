@@ -344,6 +344,18 @@ fn get_dev_attribute(dev: i32, attr: i32) -> i32 {
     thorin_get_dev_attribute(thorin_device(1, dev), attr)
 }
 
+fn device_timer_start(dev: i32) -> () {
+    thorin_device_timer_start(thorin_device(1, dev));
+}
+
+fn device_timer_stop(dev: i32) -> () {
+    thorin_device_timer_stop(thorin_device(1, dev));
+}
+
+fn device_timer_ellapsed_millis(dev: i32) -> f32 {
+    thorin_device_timer_ellapsed_millis(thorin_device(1, dev))
+}
+
 // kind: Xchg Add Sub And Nand Or Xor Max Min
 fn atomic_xchg(a: &i32, b: i32) -> i32 { atomic(0u, a, b) }
 fn atomic_add(a: &i32, b: i32) -> i32 { atomic(1u, a, b) }

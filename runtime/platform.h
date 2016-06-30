@@ -64,6 +64,11 @@ public:
     virtual void rename_last_kernel(std::string new_name) = 0;
     virtual int get_max_occupancy(device_id dev, std::string kernel_name, int block_threads) = 0;
     virtual int get_dev_attribute(device_id dev, int attr) = 0;
+
+    virtual void device_timer_start(device_id dev) = 0;
+    virtual void device_timer_stop(device_id dev) = 0;
+    virtual float device_timer_ellapsed_millis(device_id dev) = 0;
+
 protected:
     void platform_error() {
         ELOG("The selected platform is not available");

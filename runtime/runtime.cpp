@@ -136,6 +136,18 @@ int thorin_get_dev_attribute(int32_t mask, int attr) {
     return runtime.get_dev_attribute(to_platform(mask), to_device(mask), attr);
 }
 
+void thorin_device_timer_start(int32_t mask) {
+    runtime.device_timer_start(to_platform(mask), to_device(mask));
+}
+
+void thorin_device_timer_stop(int32_t mask) {
+    runtime.device_timer_stop(to_platform(mask), to_device(mask));
+}
+
+float thorin_device_timer_ellapsed_millis(int32_t mask) {
+    return runtime.device_timer_ellapsed_millis(to_platform(mask), to_device(mask));
+}
+
 void thorin_synchronize(int32_t mask) {
     runtime.synchronize(to_platform(mask), to_device(mask));
 }
