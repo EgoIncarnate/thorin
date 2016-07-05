@@ -48,7 +48,6 @@
         THORIN_NODE(MemType, mem)
         THORIN_NODE(PtrType, ptr)
         THORIN_NODE(StructType, struct_type)
-        THORIN_NODE(TupleType, tuple_type)
         THORIN_NODE(TypeError, type_error)
         THORIN_NODE(Var, var)
 

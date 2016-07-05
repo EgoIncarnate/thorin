@@ -25,7 +25,7 @@ typedef std::vector<Continuation*> Continuations;
  */
 class Param : public Def {
 private:
-    Param(const Type* type, Continuation* continuation, size_t index, const Location& loc, const std::string& name)
+    Param(const Def* type, Continuation* continuation, size_t index, const Location& loc, const std::string& name)
         : Def(Node_Param, type, 0, loc, name)
         , continuation_(continuation)
         , index_(index)
@@ -110,14 +110,14 @@ private:
     virtual ~Continuation() { for (auto param : params()) delete param; }
 
 public:
-    Continuation* stub() const { Type2Type map; return stub(map); }
-    Continuation* stub(const std::string& name) const { Type2Type map; return stub(map, name); }
-    Continuation* stub(Type2Type& type2type) const { return stub(type2type, name); }
-    Continuation* stub(Type2Type& type2type, const std::string& name) const;
+    Continuation* stub() const { Def2Def map; return stub(map); }
+    Continuation* stub(const std::string& name) const { Def2Def map; return stub(map, name); }
+    Continuation* stub(Def2Def& def2def) const { return stub(def2def, name); }
+    Continuation* stub(Def2Def& def2def, const std::string& name) const;
     Continuation* update_callee(const Def* def) { return update_op(0, def); }
     Continuation* update_op(size_t i, const Def* def);
     Continuation* update_arg(size_t i, const Def* def) { return update_op(i+1, def); }
-    const Param* append_param(const Type* type, const std::string& name = "");
+    const Param* append_param(const Def* type, const std::string& name = "");
     Continuations direct_preds() const;
     Continuations direct_succs() const;
     Continuations indirect_preds() const;
@@ -169,12 +169,12 @@ public:
     void jump(const Def* callee, Defs args, const Location& loc);
     void jump(JumpTarget&, const Location& loc);
     void branch(const Def* cond, const Def* t, const Def* f, const Location& loc);
-    std::pair<Continuation*, const Def*> call(const Def* callee, Defs args, const Type* ret_type, const Location& loc);
+    std::pair<Continuation*, const Def*> call(const Def* callee, Defs args, const Def* ret_type, const Location& loc);
 
     // value numbering
 
     const Def* set_value(size_t handle, const Def* def);
-    const Def* get_value(size_t handle, const Type* type, const char* name = "");
+    const Def* get_value(size_t handle, const Def* type, const char* name = "");
     const Def* set_mem(const Def* def);
     const Def* get_mem();
     Continuation* parent() const { return parent_; }            ///< See @p parent_ for more information.
@@ -189,7 +189,7 @@ private:
     class Todo {
     public:
         Todo() {}
-        Todo(size_t handle, size_t index, const Type* type, const char* name)
+        Todo(size_t handle, size_t index, const Def* type, const char* name)
             : handle_(handle)
             , index_(index)
             , type_(type)
@@ -198,17 +198,17 @@ private:
 
         size_t handle() const { return handle_; }
         size_t index() const { return index_; }
-        const Type* type() const { return type_; }
+        const Def* type() const { return type_; }
         const char* name() const { return name_; }
 
     private:
         size_t handle_;
         size_t index_;
-        const Type* type_;
+        const Def* type_;
         const char* name_;
     };
 
-    const Def* fix(size_t handle, size_t index, const Type* type, const char* name);
+    const Def* fix(size_t handle, size_t index, const Def* type, const char* name);
     const Def* try_remove_trivial_param(const Param*);
     const Def* find_def(size_t handle);
     void increase_values(size_t handle) { if (handle >= values_.size()) values_.resize(handle+1); }

@@ -1,6 +1,9 @@
 #ifndef THORIN_DEF_H
 #define THORIN_DEF_H
 
+#include "thorin/util/location.h"
+
+#if 0
 #include <string>
 #include <vector>
 
@@ -274,4 +277,5 @@ struct Hash<Array<const Def*>> {
 
 }
 
+#endif
 #endif

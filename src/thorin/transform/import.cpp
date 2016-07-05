@@ -2,7 +2,7 @@
 
 namespace thorin {
 
-const Type* import(Type2Type& old2new, World& to, const Type* otype) {
+const Type* import(Def2Def& old2new, World& to, const Type* otype) {
     if (auto ntype = find(old2new, otype)) {
         assert(&ntype->world() == &to);
         return ntype;
@@ -19,7 +19,7 @@ const Type* import(Type2Type& old2new, World& to, const Type* otype) {
     return ntype;
 }
 
-const Def* import(Type2Type& type_old2new, Def2Def& def_old2new, World& to, const Def* odef) {
+const Def* import(Def2Def& type_old2new, Def2Def& def_old2new, World& to, const Def* odef) {
     if (auto ndef = find(def_old2new, odef)) {
         assert(&ndef->world() == &to);
         return ndef;
@@ -69,13 +69,13 @@ const Def* import(Type2Type& type_old2new, Def2Def& def_old2new, World& to, cons
 }
 
 const Type* import(World& to, const Type* otype) {
-    Type2Type old2new;
+    Def2Def old2new;
     return import(old2new, to, otype);
 }
 
 const Def* import(World& to, const Def* odef) {
     Def2Def def_old2new;
-    Type2Type type_old2new;
+    Def2Def type_old2new;
     return import(type_old2new, def_old2new, to, odef);
 }
 

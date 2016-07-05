@@ -155,23 +155,23 @@ std::ostream& PrimType::stream(std::ostream& os) const {
  * reduce
  */
 
-const Type* FrameType::vreduce(int, const Type*, Type2Type&) const { return this; }
-const Type* MemType  ::vreduce(int, const Type*, Type2Type&) const { return this; }
-const Type* PrimType ::vreduce(int, const Type*, Type2Type&) const { return this; }
+const Type* FrameType::vreduce(int, const Type*, Def2Def&) const { return this; }
+const Type* MemType  ::vreduce(int, const Type*, Def2Def&) const { return this; }
+const Type* PrimType ::vreduce(int, const Type*, Def2Def&) const { return this; }
 
-const Type* DefiniteArrayType::vreduce(int depth, const Type* type, Type2Type& map) const {
+const Type* DefiniteArrayType::vreduce(int depth, const Type* type, Def2Def& map) const {
     return world().definite_array_type(elem_type()->reduce(depth, type, map), dim());
 }
 
-const Type* FnType::vreduce(int depth, const Type* type, Type2Type& map) const {
+const Type* FnType::vreduce(int depth, const Type* type, Def2Def& map) const {
     return world().fn_type(reduce_ops(depth, type, map));
 }
 
-const Type* IndefiniteArrayType::vreduce(int depth, const Type* type, Type2Type& map) const {
+const Type* IndefiniteArrayType::vreduce(int depth, const Type* type, Def2Def& map) const {
     return world().indefinite_array_type(elem_type()->reduce(depth, type, map));
 }
 
-const Type* PtrType::vreduce(int depth, const Type* type, Type2Type& map) const {
+const Type* PtrType::vreduce(int depth, const Type* type, Def2Def& map) const {
     return world().ptr_type(referenced_type()->reduce(depth, type, map), length(), device(), addr_space());
 }
 

@@ -18,6 +18,13 @@ namespace thorin {
 
 //------------------------------------------------------------------------------
 
+class Type : public Def {
+protected:
+    Type(World& world, int kind, Defs ops)
+        : Def(world, kind, ops)
+    {}
+};
+
 /// The type of the memory monad.
 class MemType : public Type {
 public:
@@ -28,8 +35,8 @@ private:
         : Type(world, Node_MemType, {})
     {}
 
-    virtual const Type* vrebuild(World& to, Types ops) const override;
-    virtual const Type* vreduce(int, const Type*, Type2Type&) const override;
+    virtual const Def* vrebuild(World& to, Defs ops) const override;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
 
     friend class World;
 };
@@ -44,8 +51,8 @@ private:
         : Type(world, Node_FrameType, {})
     {}
 
-    virtual const Type* vrebuild(World& to, Types ops) const override;
-    virtual const Type* vreduce(int, const Type*, Type2Type&) const override;
+    virtual const Def* vrebuild(World& to, Defs ops) const override;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
 
     friend class World;
 };
@@ -53,14 +60,14 @@ private:
 /// Base class for all SIMD types.
 class VectorType : public Type {
 protected:
-    VectorType(World& world, int kind, Types ops, size_t length)
+    VectorType(World& world, int kind, Defs ops, size_t length)
         : Type(world, kind, ops)
         , length_(length)
     {}
 
-    virtual uint64_t vhash() const override { return hash_combine(Type::vhash(), length()); }
-    virtual bool equal(const Type* other) const override {
-        return Type::equal(other) && this->length() == other->as<VectorType>()->length();
+    virtual uint64_t vhash() const override { return hash_combine(Def::vhash(), length()); }
+    virtual bool equal(const Def* other) const override {
+        return Def::equal(other) && this->length() == other->as<VectorType>()->length();
     }
 
 public:
@@ -75,7 +82,7 @@ private:
 };
 
 /// Returns the vector length. Raises an assertion if this type is not a @p VectorType.
-inline size_t vector_length(const Type* type) { return type->as<VectorType>()->length(); }
+inline size_t vector_length(const Def* type) { return type->as<VectorType>()->length(); }
 
 /// Primitive type.
 class PrimType : public VectorType {
@@ -90,26 +97,26 @@ public:
     virtual std::ostream& stream(std::ostream&) const override;
 
 private:
-    virtual const Type* vrebuild(World& to, Types ops) const override;
-    virtual const Type* vreduce(int, const Type*, Type2Type&) const override;
+    virtual const Def* vrebuild(World& to, Defs ops) const override;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
 
     friend class World;
 };
 
-inline bool is_primtype (const Type* t) { return thorin::is_primtype(t->kind()); }
-inline bool is_type_ps  (const Type* t) { return thorin::is_type_ps (t->kind()); }
-inline bool is_type_pu  (const Type* t) { return thorin::is_type_pu (t->kind()); }
-inline bool is_type_qs  (const Type* t) { return thorin::is_type_qs (t->kind()); }
-inline bool is_type_qu  (const Type* t) { return thorin::is_type_qu (t->kind()); }
-inline bool is_type_pf  (const Type* t) { return thorin::is_type_pf (t->kind()); }
-inline bool is_type_qf  (const Type* t) { return thorin::is_type_qf (t->kind()); }
-inline bool is_type_p   (const Type* t) { return thorin::is_type_p  (t->kind()); }
-inline bool is_type_q   (const Type* t) { return thorin::is_type_q  (t->kind()); }
-inline bool is_type_s   (const Type* t) { return thorin::is_type_s  (t->kind()); }
-inline bool is_type_u   (const Type* t) { return thorin::is_type_u  (t->kind()); }
-inline bool is_type_i   (const Type* t) { return thorin::is_type_i  (t->kind()); }
-inline bool is_type_f   (const Type* t) { return thorin::is_type_f  (t->kind()); }
-inline bool is_type_bool(const Type* t) { return t->kind() == Node_PrimType_bool; }
+inline bool is_primtype (const Def* d) { return thorin::is_primtype(d->kind()); }
+inline bool is_type_ps  (const Def* d) { return thorin::is_type_ps (d->kind()); }
+inline bool is_type_pu  (const Def* d) { return thorin::is_type_pu (d->kind()); }
+inline bool is_type_qs  (const Def* d) { return thorin::is_type_qs (d->kind()); }
+inline bool is_type_qu  (const Def* d) { return thorin::is_type_qu (d->kind()); }
+inline bool is_type_pf  (const Def* d) { return thorin::is_type_pf (d->kind()); }
+inline bool is_type_qf  (const Def* d) { return thorin::is_type_qf (d->kind()); }
+inline bool is_type_p   (const Def* d) { return thorin::is_type_p  (d->kind()); }
+inline bool is_type_q   (const Def* d) { return thorin::is_type_q  (d->kind()); }
+inline bool is_type_s   (const Def* d) { return thorin::is_type_s  (d->kind()); }
+inline bool is_type_u   (const Def* d) { return thorin::is_type_u  (d->kind()); }
+inline bool is_type_i   (const Def* d) { return thorin::is_type_i  (d->kind()); }
+inline bool is_type_f   (const Def* d) { return thorin::is_type_f  (d->kind()); }
+inline bool is_type_bool(const Def* d) { return d->kind() == Node_PrimType_bool; }
 
 enum class AddrSpace : uint32_t {
     Generic  = 0,
@@ -122,26 +129,26 @@ enum class AddrSpace : uint32_t {
 /// Pointer type.
 class PtrType : public VectorType {
 private:
-    PtrType(World& world, const Type* referenced_type, size_t length, int32_t device, AddrSpace addr_space)
+    PtrType(World& world, const Def* referenced_type, size_t length, int32_t device, AddrSpace addr_space)
         : VectorType(world, Node_PtrType, {referenced_type}, length)
         , addr_space_(addr_space)
         , device_(device)
     {}
 
 public:
-    const Type* referenced_type() const { return op(0); }
+    const Def* referenced_type() const { return op(0); }
     AddrSpace addr_space() const { return addr_space_; }
     int32_t device() const { return device_; }
     bool is_host_device() const { return device_ == -1; }
 
     virtual uint64_t vhash() const override;
-    virtual bool equal(const Type* other) const override;
+    virtual bool equal(const Def* other) const override;
 
     virtual std::ostream& stream(std::ostream&) const override;
 
 private:
-    virtual const Type* vrebuild(World& to, Types ops) const override;
-    virtual const Type* vreduce(int, const Type*, Type2Type&) const override;
+    virtual const Def* vrebuild(World& to, Defs ops) const override;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
 
     AddrSpace addr_space_;
     int32_t device_;
@@ -151,7 +158,7 @@ private:
 
 class FnType : public Type {
 private:
-    FnType(World& world, Types ops)
+    FnType(World& world, Defs ops)
         : Type(world, Node_FnType, ops)
     {
         ++order_;
@@ -164,8 +171,8 @@ public:
     virtual std::ostream& stream(std::ostream&) const override;
 
 private:
-    virtual const Type* vrebuild(World& to, Types ops) const override;
-    virtual const Type* vreduce(int, const Type*, Type2Type&) const override;
+    virtual const Def* vrebuild(World& to, Defs ops) const override;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
 
     friend class World;
 };
@@ -174,55 +181,55 @@ private:
 
 class ArrayType : public Type {
 protected:
-    ArrayType(World& world, int kind, const Type* elem_type)
+    ArrayType(World& world, int kind, const Def* elem_type)
         : Type(world, kind, {elem_type})
     {}
 
 public:
-    const Type* elem_type() const { return op(0); }
+    const Def* elem_type() const { return op(0); }
 };
 
 class IndefiniteArrayType : public ArrayType {
 public:
-    IndefiniteArrayType(World& world, const Type* elem_type)
+    IndefiniteArrayType(World& world, const Def* elem_type)
         : ArrayType(world, Node_IndefiniteArrayType, elem_type)
     {}
 
     virtual std::ostream& stream(std::ostream&) const override;
 
 private:
-    virtual const Type* vrebuild(World& to, Types ops) const override;
-    virtual const Type* vreduce(int, const Type*, Type2Type&) const override;
+    virtual const Def* vrebuild(World& to, Defs ops) const override;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
 
     friend class World;
 };
 
 class DefiniteArrayType : public ArrayType {
 public:
-    DefiniteArrayType(World& world, const Type* elem_type, u64 dim)
+    DefiniteArrayType(World& world, const Def* elem_type, u64 dim)
         : ArrayType(world, Node_DefiniteArrayType, elem_type)
         , dim_(dim)
     {}
 
     u64 dim() const { return dim_; }
     virtual uint64_t vhash() const override { return hash_combine(Type::vhash(), dim()); }
-    virtual bool equal(const Type* other) const override {
+    virtual bool equal(const Def* other) const override {
         return Type::equal(other) && this->dim() == other->as<DefiniteArrayType>()->dim();
     }
 
     virtual std::ostream& stream(std::ostream&) const override;
 
 private:
-    virtual const Type* vrebuild(World& to, Types ops) const override;
-    virtual const Type* vreduce(int, const Type*, Type2Type&) const override;
+    virtual const Def* vrebuild(World& to, Defs ops) const override;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
 
     u64 dim_;
 
     friend class World;
 };
 
-const IndefiniteArrayType* is_indefinite(const Type*);
-bool use_lea(const Type*);
+const IndefiniteArrayType* is_indefinite(const Def*);
+bool use_lea(const Def*);
 
 //------------------------------------------------------------------------------
 
