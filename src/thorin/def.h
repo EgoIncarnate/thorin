@@ -3,6 +3,39 @@
 
 #include "thorin/util/location.h"
 
+#include "thorin/enums.h"
+#include "thorin/util/array.h"
+#include "thorin/util/cast.h"
+#include "thorin/util/hash.h"
+#include "thorin/util/stream.h"
+#include "thorin/util/log.h"
+
+namespace thorin {
+
+#define HENK_STRUCT_EXTRA_NAME name
+#define HENK_STRUCT_EXTRA_TYPE const char*
+#define HENK_TABLE_NAME world
+#define HENK_TABLE_TYPE World
+#include "thorin/henk.h"
+
+/// Returns the vector length. Raises an assertion if type of this is not a \p VectorType.
+size_t vector_length(const Def*);
+bool is_const(const Def*);
+bool is_primlit(const Def*, int);
+bool is_minus_zero(const Def*);
+inline bool is_zero       (const Def* def) { return is_primlit(def, 0); }
+inline bool is_one        (const Def* def) { return is_primlit(def, 1); }
+inline bool is_allset     (const Def* def) { return is_primlit(def, -1); }
+inline bool is_bitop      (const Def* def) { return thorin::is_bitop(def->kind()); }
+inline bool is_shift      (const Def* def) { return thorin::is_shift(def->kind()); }
+inline bool is_not        (const Def* def) { return def->kind() == Node_xor && is_allset(def->op(0)); }
+inline bool is_minus      (const Def* def) { return def->kind() == Node_sub && is_minus_zero(def->op(0)); }
+inline bool is_div_or_rem (const Def* def) { return thorin::is_div_or_rem(def->kind()); }
+inline bool is_commutative(const Def* def) { return thorin::is_commutative(def->kind()); }
+inline bool is_associative(const Def* def) { return thorin::is_associative(def->kind()); }
+
+}
+
 #if 0
 #include <string>
 #include <vector>

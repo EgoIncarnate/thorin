@@ -26,7 +26,7 @@ typedef std::vector<Continuation*> Continuations;
 class Param : public Def {
 private:
     Param(const Def* type, Continuation* continuation, size_t index, const Location& loc, const std::string& name)
-        : Def(Node_Param, type, 0, loc, name)
+        : Def(type->world(), Node_Param, type, 0, loc, name)
         , continuation_(continuation)
         , index_(index)
     {}
@@ -98,7 +98,7 @@ enum class CC : uint8_t {
 class Continuation : public Def {
 private:
     Continuation(const FnType* fn, const Location& loc, CC cc, Intrinsic intrinsic, bool is_sealed, const std::string& name)
-        : Def(Node_Continuation, fn, 0, loc, name)
+        : Def(fn->world(), Node_Continuation, fn, 0, loc, name)
         , parent_(this)
         , cc_(cc)
         , intrinsic_(intrinsic)
@@ -112,7 +112,7 @@ private:
 public:
     Continuation* stub() const { Def2Def map; return stub(map); }
     Continuation* stub(const std::string& name) const { Def2Def map; return stub(map, name); }
-    Continuation* stub(Def2Def& def2def) const { return stub(def2def, name); }
+    Continuation* stub(Def2Def& def2def) const { return stub(def2def, name()); }
     Continuation* stub(Def2Def& def2def, const std::string& name) const;
     Continuation* update_callee(const Def* def) { return update_op(0, def); }
     Continuation* update_op(size_t i, const Def* def);

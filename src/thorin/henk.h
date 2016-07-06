@@ -20,7 +20,40 @@
 
 //------------------------------------------------------------------------------
 
+class Continuation;
 class Def;
+
+/**
+ * References a user.
+ * A \p Def \c u which uses \p Def \c d as \c i^th operand is a \p Use with \p index_ \c i of \p Def \c d.
+ */
+class Use {
+public:
+    Use() {}
+    Use(size_t index, const Def* def)
+        : index_(index)
+        , def_(def)
+    {}
+
+    size_t index() const { return index_; }
+    const Def* def() const { return def_; }
+    operator const Def*() const { return def_; }
+    const Def* operator->() const { return def_; }
+    bool operator==(Use other) const { return this->def() == other.def() && this->index() == other.index(); }
+
+private:
+    size_t index_;
+    const Def* def_;
+};
+
+//------------------------------------------------------------------------------
+
+struct UseHash {
+    inline uint64_t operator()(Use use) const;
+};
+
+typedef HashSet<Use, UseHash> Uses;
+
 class Var;
 class HENK_TABLE_TYPE;
 
@@ -49,7 +82,7 @@ protected:
     Def(const Def&) = delete;
     Def& operator=(const Def&) = delete;
 
-    Def(HENK_TABLE_TYPE& table, const Def* type, int kind, size_t num_ops, const Location& loc, const char* name)
+    Def(HENK_TABLE_TYPE& table, int kind, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
         : HENK_TABLE_NAME_(table)
         , kind_(kind)
         , ops_(num_ops)
@@ -58,7 +91,7 @@ protected:
     {
     }
 
-    Def(HENK_TABLE_TYPE& table, const Def* type, int kind, Defs ops, const Location& loc, const char* name)
+    Def(HENK_TABLE_TYPE& table, int kind, const Def* type, Defs ops, const Location& loc, const std::string& name)
         : HENK_TABLE_NAME_(table)
         , kind_(kind)
         , ops_(ops.size())
@@ -87,7 +120,14 @@ public:
     size_t num_ops() const { return ops_.size(); }
     bool empty() const { return ops_.empty(); }
     const Def* type() const { return type_; }
-    const char* name() const { return name_; }
+    const std::string& name() const { return name_; }
+
+    void set_op(size_t i, const Def* def);
+    void unset_op(size_t i);
+    void unset_ops();
+    Continuation* as_continuation() const;
+    Continuation* isa_continuation() const;
+    void replace(const Def*) const;
 
     bool is_nominal() const { return nominal_; }              ///< A nominal @p Def is always different from each other @p Def.
     bool is_hashed()  const { return hashed_; }               ///< This @p Def is already recorded inside of @p HENK_TABLE_TYPE.
@@ -98,6 +138,8 @@ public:
     size_t gid() const { return gid_; }
     uint64_t hash() const { return is_hashed() ? hash_ : hash_ = vhash(); }
     virtual bool equal(const Def*) const;
+    virtual bool is_outdated() const { return false; }
+    virtual const Def* rebuild(Def2Def&) const { return this; }
 
     const Def* reduce(int, const Def*, Def2Def&) const;
     const Def* rebuild(HENK_TABLE_TYPE& to, Defs ops) const;
@@ -106,6 +148,8 @@ public:
     static size_t gid_counter() { return gid_counter_; }
 
 protected:
+    void set_type(const Def* type) { assert(type->is_nominal()); type_ = type; }
+
     virtual uint64_t vhash() const;
     virtual const Def* vreduce(int, const Def*, Def2Def&) const = 0;
     thorin::Array<const Def*> reduce_ops(int, const Def*, Def2Def&) const;
@@ -123,18 +167,19 @@ private:
     int kind_;
     const Def* type_;
     thorin::Array<const Def*> ops_;
-    const char* name_;
+    std::string name_;
     mutable size_t gid_;
     static size_t gid_counter_;
     mutable bool nominal_;
 
     template<class> friend class TableBase;
+    friend class Tracker;
 };
 
 class Lambda : public Def {
 private:
-    Lambda(HENK_TABLE_TYPE& table, const Def* var_type, const Def* body, const Location& loc, const char* name)
-        : Def(table, Node_Lambda, {body}, loc, name)
+    Lambda(HENK_TABLE_TYPE& table, const Def* var_type, const Def* body, const Location& loc, const std::string& name)
+        : Def(table, Node_Lambda, nullptr /*TODO type*/, {body}, loc, name)
     {}
 
 public:
@@ -145,15 +190,29 @@ private:
     virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const override;
     virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
 
-    const char* name_;
+    template<class> friend class TableBase;
+};
+
+class Star : public Def {
+private:
+    Star(HENK_TABLE_TYPE& table)
+        : Def(table, Node_Star, nullptr, {}, Location(), "kind")
+    {}
+
+public:
+    virtual std::ostream& stream(std::ostream&) const override;
+
+private:
+    virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const override;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
 
     template<class> friend class TableBase;
 };
 
 class Var : public Def {
 private:
-    Var(HENK_TABLE_TYPE& table, int depth)
-        : Def(table, Node_Var, {})
+    Var(HENK_TABLE_TYPE& table, int depth, const Def* type, const Location& loc, const std::string& name)
+        : Def(table, Node_Var, type, {}, loc, name)
         , depth_(depth)
     {
         monomorphic_ = false;
@@ -176,8 +235,8 @@ private:
 
 class App : public Def {
 private:
-    App(HENK_TABLE_TYPE& table, const Def* callee, const Def* arg)
-        : Def(table, Node_App, {callee, arg})
+    App(HENK_TABLE_TYPE& table, const Def* callee, const Def* arg, const Location& loc, const std::string& name)
+        : Def(table, Node_App, nullptr /*TODO type*/, {callee, arg}, loc, name)
     {}
 
 public:
@@ -194,8 +253,8 @@ private:
 
 class Tuple : public Def {
 private:
-    Tuple(HENK_TABLE_TYPE& table, Defs ops)
-        : Def(table, Node_Tuple, ops)
+    Tuple(HENK_TABLE_TYPE& table, Defs ops, const Location& loc, const std::string& name)
+        : Def(table, Node_Tuple, nullptr /*TODO type*/, ops, loc, name)
     {}
 
     virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
@@ -203,29 +262,6 @@ private:
 
 public:
     virtual std::ostream& stream(std::ostream&) const override;
-
-    template<class> friend class TableBase;
-};
-
-class StructType : public Def {
-private:
-    StructType(HENK_TABLE_TYPE& table, HENK_STRUCT_EXTRA_TYPE HENK_STRUCT_EXTRA_NAME, size_t size)
-        : Def(table, Node_StructType, thorin::Array<const Def*>(size))
-        , HENK_STRUCT_EXTRA_NAME_(HENK_STRUCT_EXTRA_NAME)
-    {
-        nominal_ = true;
-    }
-
-public:
-    HENK_STRUCT_EXTRA_TYPE HENK_STRUCT_EXTRA_NAME() const { return HENK_STRUCT_EXTRA_NAME_; }
-    void set(size_t i, const Def* type) const { return const_cast<StructType*>(this)->Def::set(i, type); }
-
-private:
-    virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const override;
-    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
-    virtual std::ostream& stream(std::ostream&) const override;
-
-    HENK_STRUCT_EXTRA_TYPE HENK_STRUCT_EXTRA_NAME_;
 
     template<class> friend class TableBase;
 };
@@ -233,7 +269,7 @@ private:
 class TypeError : public Def {
 private:
     TypeError(HENK_TABLE_TYPE& table)
-        : Def(table, Node_TypeError, {})
+        : Def(table, Node_TypeError, nullptr /*TODO type*/, {}, Location(), "<type error>")
     {}
 
 public:
@@ -244,6 +280,96 @@ private:
     virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
 
     template<class> friend class TableBase;
+};
+
+//------------------------------------------------------------------------------
+
+class Tracker {
+public:
+    Tracker()
+        : def_(nullptr)
+    {}
+    Tracker(const Def* def)
+        : def_(def)
+    {
+        if (def) {
+            put(*this);
+            verify();
+        }
+    }
+    Tracker(const Tracker& other)
+        : def_(other)
+    {
+        if (other) {
+            put(*this);
+            verify();
+        }
+    }
+    Tracker(Tracker&& other)
+        : def_(*other)
+    {
+        if (other) {
+            other.unregister();
+            other.def_ = nullptr;
+            put(*this);
+            verify();
+        }
+    }
+    ~Tracker() { if (*this) unregister(); }
+
+    const Def* operator*() const { return def_; }
+    bool operator==(const Tracker& other) const { return this->def_ == other.def_; }
+    bool operator!=(const Tracker& other) const { return this->def_ != other.def_; }
+    bool operator==(const Def* def) const { return this->def_ == def; }
+    bool operator!=(const Def* def) const { return this->def_ != def; }
+    const Def* operator->() const { return **this; }
+    operator const Def*() const { return **this; }
+    explicit operator bool() { return def_; }
+    Tracker& operator=(Tracker other) { swap(*this, other); return *this; }
+
+    friend void swap(Tracker& t1, Tracker& t2) {
+        using std::swap;
+
+        if (t1 != t2) {
+            if (t1) {
+                if (t2) {
+                    t1.update(t2);
+                    t2.update(t1);
+                } else {
+                    t1.update(t2);
+                }
+            } else {
+                assert(!t1 && t2);
+                t2.update(t1);
+            }
+
+            std::swap(t1.def_, t2.def_);
+        } else {
+            t1.verify();
+            t2.verify();
+        }
+    }
+
+private:
+    HashSet<Tracker*>& trackers(const Def* def);
+    void verify() { assert(!def_ || trackers(def_).contains(this)); }
+    void put(Tracker& other) {
+        auto p = trackers(def_).insert(&other);
+        assert_unused(p.second && "couldn't insert tracker");
+    }
+
+    void unregister() {
+        assert(trackers(def_).contains(this) && "tracker not found");
+        trackers(def_).erase(this);
+    }
+
+    void update(Tracker& other) {
+        unregister();
+        put(other);
+    }
+
+    mutable const Def* def_;
+    friend void Def::replace(const Def*) const;
 };
 
 //------------------------------------------------------------------------------
@@ -268,12 +394,11 @@ public:
     virtual ~TableBase() { for (auto def : defs_) delete def; }
 
     const Var* var(int depth) { return unify(new Var(HENK_TABLE_NAME(), depth)); }
-    const Lambda* lambda(const char* name) { return new Lambda(HENK_TABLE_NAME(), name); }
-    const Lambda* lambda(const Def* body, const char* name) { return unify(new Lambda(HENK_TABLE_NAME(), body, name)); }
+    const Lambda* lambda(const std::string& name) { return new Lambda(HENK_TABLE_NAME(), name); }
+    const Lambda* lambda(const Def* body, const std::string& name) { return unify(new Lambda(HENK_TABLE_NAME(), body, name)); }
     const Def* app(const Def* callee, const Def* arg);
     const Tuple* tuple(Defs ops) { return unify(new Tuple(HENK_TABLE_NAME(), ops)); }
     const Tuple* unit() { return unit_; } ///< Returns unit, i.e., an empty @p Tuple.
-    const StructType* struct_type(HENK_STRUCT_EXTRA_TYPE HENK_STRUCT_EXTRA_NAME, size_t size);
     const TypeError* type_error() { return type_error_; }
 
     const DefSet& defs() const { return defs_; }

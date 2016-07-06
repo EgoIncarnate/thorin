@@ -1,28 +1,30 @@
 #ifndef THORIN_TYPE_H
 #define THORIN_TYPE_H
 
-#include "thorin/enums.h"
-#include "thorin/util/array.h"
-#include "thorin/util/cast.h"
-#include "thorin/util/hash.h"
-#include "thorin/util/stream.h"
-#include "thorin/util/log.h"
+#include "thorin/def.h"
 
 namespace thorin {
 
-#define HENK_STRUCT_EXTRA_NAME name
-#define HENK_STRUCT_EXTRA_TYPE const char*
-#define HENK_TABLE_NAME world
-#define HENK_TABLE_TYPE World
-#include "thorin/henk.h"
-
 //------------------------------------------------------------------------------
+
+class StructType : public Def {
+private:
+    StructType(World& world, size_t num_ops, const Location& loc, const std::string& name);
+
+public:
+    void set(size_t i, const Def* type) const { return const_cast<StructType*>(this)->Def::set(i, type); }
+
+private:
+    virtual const Def* vrebuild(World& to, Defs ops) const override;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
+    virtual std::ostream& stream(std::ostream&) const override;
+
+    friend class World;
+};
 
 class Type : public Def {
 protected:
-    Type(World& world, int kind, Defs ops)
-        : Def(world, kind, ops)
-    {}
+    Type(World& world, int kind, Defs ops);
 };
 
 /// The type of the memory monad.
@@ -40,6 +42,8 @@ private:
 
     friend class World;
 };
+
+inline bool is_mem(const Def* def) { return def->type()->isa<MemType>(); }
 
 /// The type of a stack frame.
 class FrameType : public Type {

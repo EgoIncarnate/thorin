@@ -39,14 +39,7 @@ namespace thorin {
  *  All worlds are completely independent from each other.
  *  This is particular useful for multi-threading.
  */
-class World : public TypeTableBase<World>, public Streamable {
-private:
-    struct TypeHash { uint64_t operator () (const Type* t) const { return t->hash(); } };
-    struct TypeEqual { bool operator () (const Type* t1, const Type* t2) const { return t1->equal(t2); } };
-
-public:
-    typedef HashSet<const PrimOp*, PrimOpHash, PrimOpEqual> PrimOpSet;
-
+class World : public TableBase<World>, public Streamable {
     World(std::string name = "");
     ~World();
 
@@ -63,14 +56,15 @@ public:
     }
     const MemType* mem_type() const { return mem_; }
     const FrameType* frame_type() const { return frame_; }
-    const PtrType* ptr_type(const Type* referenced_type,
+    const PtrType* ptr_type(const Def* referenced_type,
                             size_t length = 1, int32_t device = -1, AddrSpace addr_space = AddrSpace::Generic) {
         return unify(new PtrType(*this, referenced_type, length, device, addr_space));
     }
     const FnType* fn_type() { return fn0_; } ///< Returns an empty @p FnType.
-    const FnType* fn_type(Types args) { return unify(new FnType(*this, args)); }
-    const DefiniteArrayType*   definite_array_type(const Type* elem, u64 dim) { return unify(new DefiniteArrayType(*this, elem, dim)); }
-    const IndefiniteArrayType* indefinite_array_type(const Type* elem) { return unify(new IndefiniteArrayType(*this, elem)); }
+    const FnType* fn_type(Defs args) { return unify(new FnType(*this, args)); }
+    const DefiniteArrayType*   definite_array_type(const Def* elem, u64 dim) { return unify(new DefiniteArrayType(*this, elem, dim)); }
+    const IndefiniteArrayType* indefinite_array_type(const Def* elem) { return unify(new IndefiniteArrayType(*this, elem)); }
+    const StructType* struct_type(size_t size, const Location& loc, const std::string& name);
 
     // literals
 
@@ -81,12 +75,12 @@ public:
     template<class T>
     const Def* literal(T value, const Location& loc, size_t length = 1) { return literal(type2kind<T>::kind, Box(value), loc, length); }
     const Def* zero(PrimTypeKind kind, const Location& loc, size_t length = 1) { return literal(kind, 0, loc, length); }
-    const Def* zero(const Type* type, const Location& loc, size_t length = 1) { return zero(type->as<PrimType>()->primtype_kind(), loc, length); }
+    const Def* zero(const Def* type, const Location& loc, size_t length = 1) { return zero(type->as<PrimType>()->primtype_kind(), loc, length); }
     const Def* one(PrimTypeKind kind, const Location& loc, size_t length = 1) { return literal(kind, 1, loc, length); }
-    const Def* one(const Type* type, const Location& loc, size_t length = 1) { return one(type->as<PrimType>()->primtype_kind(), loc, length); }
+    const Def* one(const Def* type, const Location& loc, size_t length = 1) { return one(type->as<PrimType>()->primtype_kind(), loc, length); }
     const Def* allset(PrimTypeKind kind, const Location& loc, size_t length = 1) { return literal(kind, -1, loc, length); }
-    const Def* allset(const Type* type, const Location& loc, size_t length = 1) { return allset(type->as<PrimType>()->primtype_kind(), loc, length); }
-    const Def* bottom(const Type* type, const Location& loc, size_t length = 1) { return splat(cse(new Bottom(type, loc, "")), length); }
+    const Def* allset(const Def* type, const Location& loc, size_t length = 1) { return allset(type->as<PrimType>()->primtype_kind(), loc, length); }
+    const Def* bottom(const Def* type, const Location& loc, size_t length = 1) { return splat(cse(new Bottom(type, loc, "")), length); }
     const Def* bottom(PrimTypeKind kind, const Location& loc, size_t length = 1) { return bottom(type(kind), loc, length); }
 
     // arithops
@@ -113,13 +107,13 @@ public:
 
     // casts
 
-    const Def* convert(const Type* to, const Def* from, const Location& loc, const std::string& name = "");
-    const Def* cast(const Type* to, const Def* from, const Location& loc, const std::string& name = "");
-    const Def* bitcast(const Type* to, const Def* from, const Location& loc, const std::string& name = "");
+    const Def* convert(const Def* to, const Def* from, const Location& loc, const std::string& name = "");
+    const Def* cast(const Def* to, const Def* from, const Location& loc, const std::string& name = "");
+    const Def* bitcast(const Def* to, const Def* from, const Location& loc, const std::string& name = "");
 
     // aggregate operations
 
-    const Def* definite_array(const Type* elem, Defs args, const Location& loc, const std::string& name = "") {
+    const Def* definite_array(const Def* elem, Defs args, const Location& loc, const std::string& name = "") {
         return cse(new DefiniteArray(*this, elem, args, loc, name));
     }
     /// Create definite_array with at least one element. The type of that element is the element type of the definite array.
@@ -127,7 +121,7 @@ public:
         assert(!args.empty());
         return definite_array(args.front()->type(), args, loc, name);
     }
-    const Def* indefinite_array(const Type* elem, const Def* dim, const Location& loc, const std::string& name = "") {
+    const Def* indefinite_array(const Def* elem, const Def* dim, const Location& loc, const std::string& name = "") {
         return cse(new IndefiniteArray(*this, elem, dim, loc, name));
     }
     const Def* struct_agg(const StructType* struct_type, Defs args, const Location& loc, const std::string& name = "") {
@@ -156,9 +150,9 @@ public:
     const Def* load(const Def* mem, const Def* ptr, const Location& loc, const std::string& name = "");
     const Def* store(const Def* mem, const Def* ptr, const Def* val, const Location& loc, const std::string& name = "");
     const Def* enter(const Def* mem, const Location& loc, const std::string& name = "");
-    const Def* slot(const Type* type, const Def* frame, const Location& loc, const std::string& name = "") { return cse(new Slot(type, frame, loc, name)); }
-    const Def* alloc(const Type* type, const Def* mem, const Def* extra, const Location& loc, const std::string& name = "");
-    const Def* alloc(const Type* type, const Def* mem, const Location& loc, const std::string& name = "") { return alloc(type, mem, literal_qu64(0, loc), loc, name); }
+    const Def* slot(const Def* type, const Def* frame, const Location& loc, const std::string& name = "") { return cse(new Slot(type, frame, loc, name)); }
+    const Def* alloc(const Def* type, const Def* mem, const Def* extra, const Location& loc, const std::string& name = "");
+    const Def* alloc(const Def* type, const Def* mem, const Location& loc, const std::string& name = "") { return alloc(type, mem, literal_qu64(0, loc), loc, name); }
     const Def* global(const Def* init, const Location& loc, bool is_mutable = true, const std::string& name = "");
     const Def* global_immutable_string(const Location& loc, const std::string& str, const std::string& name = "");
     const Def* lea(const Def* ptr, const Def* index, const Location& loc, const std::string& name = "") { return cse(new LEA(ptr, index, loc, name)); }
@@ -212,7 +206,7 @@ public:
 
 private:
     HashSet<Tracker*>& trackers(const Def* def) { assert(def); return trackers_[def]; }
-    const Param* param(const Type* type, Continuation* continuation, size_t index, const std::string& name = "");
+    const Param* param(const Def* type, Continuation* continuation, size_t index, const std::string& name = "");
     const Def* cse_base(const PrimOp*);
     template<class T> const T* cse(const T* primop) { return cse_base(primop)->template as<T>(); }
 

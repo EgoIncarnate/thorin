@@ -19,6 +19,15 @@ namespace thorin {
 
 //------------------------------------------------------------------------------
 
+StructType::StructType(World& world, size_t num_ops, const Location& loc, const std::string& name)
+    : Def(world, Node_StructType, world.star(), thorin::Array<const Def*>(num_ops), loc, name)
+{
+    nominal_ = true;
+}
+
+Type::Type(World& world, int kind, Defs ops)
+    : Def(world, kind, world.star(), ops, Location(), "TODO")
+{}
 
 const VectorType* VectorType::scalarize() const {
     if (auto ptr = isa<PtrType>())
