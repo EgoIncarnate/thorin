@@ -87,16 +87,16 @@ void Continuation::destroy_body() {
 }
 
 const FnType* Continuation::arg_fn_type() const {
-    Array<const Type*> args(num_args());
+    Array<const Def*> args(num_args());
     for (size_t i = 0, e = num_args(); i != e; ++i)
         args[i] = arg(i)->type();
 
     return world().fn_type(args);
 }
 
-const Param* Continuation::append_param(const Type* param_type, const std::string& name) {
+const Param* Continuation::append_param(const Def* param_type, const std::string& name) {
     size_t size = type()->num_ops();
-    Array<const Type*> ops(size + 1);
+    Array<const Def*> ops(size + 1);
     *std::copy(type()->ops().begin(), type()->ops().end(), ops.begin()) = param_type;
     clear_type();
     set_type(param_type->world().fn_type(ops));               // update type
@@ -194,20 +194,20 @@ bool Continuation::is_external() const { return world().is_external(this); }
 bool Continuation::is_intrinsic() const { return intrinsic_ != Intrinsic::None; }
 bool Continuation::is_accelerator() const { return Intrinsic::_Accelerator_Begin <= intrinsic_ && intrinsic_ < Intrinsic::_Accelerator_End; }
 void Continuation::set_intrinsic() {
-    if      (name == "cuda")           intrinsic_ = Intrinsic::CUDA;
-    else if (name == "nvvm")           intrinsic_ = Intrinsic::NVVM;
-    else if (name == "spir")           intrinsic_ = Intrinsic::SPIR;
-    else if (name == "opencl")         intrinsic_ = Intrinsic::OpenCL;
-    else if (name == "parallel")       intrinsic_ = Intrinsic::Parallel;
-    else if (name == "spawn")          intrinsic_ = Intrinsic::Spawn;
-    else if (name == "sync")           intrinsic_ = Intrinsic::Sync;
-    else if (name == "vectorize")      intrinsic_ = Intrinsic::Vectorize;
-    else if (name == "reserve_shared") intrinsic_ = Intrinsic::Reserve;
-    else if (name == "atomic")         intrinsic_ = Intrinsic::Atomic;
-    else if (name == "bitcast")        intrinsic_ = Intrinsic::Bitcast;
-    else if (name == "select")         intrinsic_ = Intrinsic::Select;
-    else if (name == "sizeof")         intrinsic_ = Intrinsic::Sizeof;
-    else if (name == "shuffle")        intrinsic_ = Intrinsic::Shuffle;
+    if      (name() == "cuda")           intrinsic_ = Intrinsic::CUDA;
+    else if (name() == "nvvm")           intrinsic_ = Intrinsic::NVVM;
+    else if (name() == "spir")           intrinsic_ = Intrinsic::SPIR;
+    else if (name() == "opencl")         intrinsic_ = Intrinsic::OpenCL;
+    else if (name() == "parallel")       intrinsic_ = Intrinsic::Parallel;
+    else if (name() == "spawn")          intrinsic_ = Intrinsic::Spawn;
+    else if (name() == "sync")           intrinsic_ = Intrinsic::Sync;
+    else if (name() == "vectorize")      intrinsic_ = Intrinsic::Vectorize;
+    else if (name() == "reserve_shared") intrinsic_ = Intrinsic::Reserve;
+    else if (name() == "atomic")         intrinsic_ = Intrinsic::Atomic;
+    else if (name() == "bitcast")        intrinsic_ = Intrinsic::Bitcast;
+    else if (name() == "select")         intrinsic_ = Intrinsic::Select;
+    else if (name() == "sizeof")         intrinsic_ = Intrinsic::Sizeof;
+    else if (name() == "shuffle")        intrinsic_ = Intrinsic::Shuffle;
     else assert(false && "unsupported thorin intrinsic");
 }
 
@@ -303,13 +303,13 @@ void Continuation::branch(const Def* cond, const Def* t, const Def* f, const Loc
     return jump(world().branch(), {cond, t, f}, loc);
 }
 
-std::pair<Continuation*, const Def*> Continuation::call(const Def* to, Defs args, const Type* ret_type, const Location& loc) {
+std::pair<Continuation*, const Def*> Continuation::call(const Def* to, Defs args, const Def* ret_type, const Location& loc) {
     if (ret_type == nullptr) {
         jump(to, args, loc);
         return std::make_pair(nullptr, nullptr);
     }
 
-    std::vector<const Type*> cont_args;
+    std::vector<const Def*> cont_args;
     cont_args.push_back(world().mem_type());
     bool pack = false;
     if (auto tuple = ret_type->isa<TupleType>()) {

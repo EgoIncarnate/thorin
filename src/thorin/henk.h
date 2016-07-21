@@ -128,6 +128,12 @@ protected:
         known_       &= def->is_known();
     }
 
+    void clear_type() { type_ = nullptr; }
+    void set_type(const Def* type) { assert(type->is_nominal()); type_ = type; }
+    void unregister_use(size_t i) const;
+    void unregister_uses() const;
+    void resize(size_t n) { ops_.resize(n, nullptr); }
+
 public:
     int tag() const { return tag_; }
     Sort sort() const { return sort_; }
@@ -168,8 +174,6 @@ public:
     static size_t gid_counter() { return gid_counter_; }
 
 protected:
-    void set_type(const Def* type) { assert(type->is_nominal()); type_ = type; }
-
     virtual uint64_t vhash() const;
     virtual const Def* vreduce(int, const Def*, Def2Def&) const = 0;
     thorin::Array<const Def*> reduce_ops(int, const Def*, Def2Def&) const;
@@ -187,7 +191,7 @@ private:
     int tag_;
     Sort sort_;
     const Def* type_;
-    thorin::Array<const Def*> ops_;
+    std::vector<const Def*> ops_;
     mutable size_t gid_;
     static size_t gid_counter_;
     mutable bool nominal_;

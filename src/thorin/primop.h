@@ -39,15 +39,10 @@ public:
     std::ostream& stream_assignment(std::ostream&) const;
 
 protected:
-    virtual uint64_t vhash() const;
-    virtual bool equal(const PrimOp* other) const;
     /// Is @p def the @p i^th result of a @p T @p PrimOp?
     template<int i, class T> inline static const T* is_out(const Def* def);
 
 private:
-    uint64_t hash() const { return hash_ == 0 ? hash_ = vhash() : hash_; }
-
-    mutable uint64_t hash_ = 0;
     mutable uint32_t live_ = 0;
     mutable bool is_outdated_ : 1;
 
@@ -56,14 +51,6 @@ private:
     friend class World;
     friend class Cleaner;
     friend void Def::replace(const Def*) const;
-};
-
-struct PrimOpHash {
-    uint64_t operator() (const PrimOp* o) const { return o->hash(); }
-};
-
-struct PrimOpEqual {
-    bool operator() (const PrimOp* o1, const PrimOp* o2) const { return o1->equal(o2); }
 };
 
 //------------------------------------------------------------------------------
@@ -105,7 +92,7 @@ public:
 
 private:
     virtual uint64_t vhash() const override;
-    virtual bool equal(const PrimOp* other) const override;
+    virtual bool equal(const Def* other) const override;
     virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const override;
 
     Box box_;
@@ -421,7 +408,7 @@ public:
 
 private:
     virtual uint64_t vhash() const override;
-    virtual bool equal(const PrimOp* other) const override;
+    virtual bool equal(const Def* other) const override;
     virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const override;
 
     friend class World;
@@ -446,7 +433,7 @@ public:
 
 private:
     virtual uint64_t vhash() const override { return hash_value(gid()); }
-    virtual bool equal(const PrimOp* other) const override { return this == other; }
+    virtual bool equal(const Def* other) const override { return this == other; }
     virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const override;
 
     bool is_mutable_;
@@ -470,7 +457,7 @@ public:
 
 private:
     virtual uint64_t vhash() const override { return hash_value(gid()); }
-    virtual bool equal(const PrimOp* other) const override { return this == other; }
+    virtual bool equal(const Def* other) const override { return this == other; }
 };
 
 /// Allocates memory on the heap.
