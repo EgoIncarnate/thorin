@@ -1,3 +1,4 @@
+#if 0
 #include "thorin/def.h"
 
 #include <algorithm>
@@ -167,3 +168,4 @@ std::ostream& Def::stream(std::ostream& out) const { return out << unique_name()
 HashSet<Tracker*>& Tracker::trackers(const Def* def) { return def->world().trackers_[def]; }
 
 }
+#endif

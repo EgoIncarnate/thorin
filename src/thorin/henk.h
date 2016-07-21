@@ -435,11 +435,14 @@ public:
     const Star* star();
     const Var* var(int depth) { return unify(new Var(HENK_TABLE_NAME(), depth)); }
     const Lambda* lambda(Sort sort, const Def* var_type, const Def* body, const std::string& name) { return unify(new Lambda(HENK_TABLE_NAME(), sort, var_type, body, name)); }
-    const Lambda* lambda(const Def* var_type, const Def* body, const std::string& name) { return unify(new Lambda(HENK_TABLE_NAME(), Sort::Term, var_type, body, name)); }
-    const Lambda* pi(const Def* var_type, const Def* body, const std::string& name) { return unify(new Lambda(HENK_TABLE_NAME(), Sort::Type, var_type, body, name)); }
+    const Lambda* lambda(const Def* var_type, const Def* body, const std::string& name) { return lambda(Sort::Term, var_type, body, name); }
+    const Lambda* pi(const Def* var_type, const Def* body, const std::string& name)     { return lambda(Sort::Type, var_type, body, name); }
     const Def* app(const Def* callee, const Def* arg);
     const Def* app(const Def* callee, Defs args);
-    const Tuple* tuple(Defs ops, const Location& loc) { return unify(new Tuple(HENK_TABLE_NAME(), ops)); }
+    const Tuple* tuple(Sort sort, Defs ops, const Location& loc, const std::string& name = "") { return unify(new Tuple(HENK_TABLE_NAME(), sort, ops, loc, name)); }
+    const Tuple* tuple           (Defs ops, const Location& loc, const std::string& name = "") { return tuple(Sort::Term, ops, loc, name); }
+    const Tuple* tuple_type      (Defs ops, const Location& loc, const std::string& name = "") { return tuple(Sort::Type, ops, loc, name); }
+    const Tuple* tuple_kind      (Defs ops, const Location& loc, const std::string& name = "") { return tuple(Sort::Kind, ops, loc, name); }
     const Error* error(const Def* type) { return unify(new Error(HENK_TABLE_NAME(), type)); }
 
     const DefSet& defs() const { return defs_; }

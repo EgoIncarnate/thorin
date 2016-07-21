@@ -40,6 +40,7 @@ namespace thorin {
  *  This is particular useful for multi-threading.
  */
 class World : public TableBase<World>, public Streamable {
+public:
     World(std::string name = "");
     ~World();
 

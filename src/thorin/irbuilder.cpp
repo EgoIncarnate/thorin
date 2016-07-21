@@ -127,8 +127,8 @@ Continuation* IRBuilder::continuation(const FnType* fn, const Location& loc, CC 
     if (fn->num_ops() >= 1 && fn->ops().front()->isa<MemType>()) {
         auto param = l->params().front();
         l->set_mem(param);
-        if (param->name.empty())
-            param->name = "mem";
+        if (param->name().empty())
+            param->name_ = "mem";
     }
 
     return l;
@@ -199,7 +199,7 @@ const Def* IRBuilder::extract(const Def* agg, u32 index, const Location& loc, co
 const Def* IRBuilder::extract(const Def* agg, const Def* index, const Location& loc, const std::string& name) {
     if (auto ld = Load::is_out_val(agg)) {
         if (use_lea(ld->out_val_type()))
-            return load(world().lea(ld->ptr(), index, loc, ld->name), loc);
+            return load(world().lea(ld->ptr(), index, loc, ld->name()), loc);
     }
     return world().extract(agg, index, loc, name);
 }
