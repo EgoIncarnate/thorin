@@ -147,6 +147,7 @@ public:
     size_t num_uses() const { return uses().size(); }
     const Def* type() const { return type_; }
     const std::string& name() const { return name_; }
+    std::string unique_name() const;
 
     void set_op(size_t i, const Def* def);
     void unset_op(size_t i);
@@ -428,10 +429,7 @@ public:
     TableBase& operator=(const TableBase&);
     TableBase(const TableBase&);
 
-    TableBase()
-        : unit_(unify(new Tuple(HENK_TABLE_NAME(), Defs())))
-        , type_error_(unify(new Error(HENK_TABLE_NAME())))
-    {}
+    TableBase() {}
     virtual ~TableBase() { for (auto def : defs_) delete def; }
 
     const Star* star();
@@ -441,9 +439,8 @@ public:
     const Lambda* pi(const Def* var_type, const Def* body, const std::string& name) { return unify(new Lambda(HENK_TABLE_NAME(), Sort::Type, var_type, body, name)); }
     const Def* app(const Def* callee, const Def* arg);
     const Def* app(const Def* callee, Defs args);
-    const Tuple* tuple(Defs ops) { return unify(new Tuple(HENK_TABLE_NAME(), ops)); }
-    const Tuple* unit() { return unit_; } ///< Returns unit, i.e., an empty @p Tuple.
-    const Error* type_error() { return type_error_; }
+    const Tuple* tuple(Defs ops, const Location& loc) { return unify(new Tuple(HENK_TABLE_NAME(), ops)); }
+    const Error* error(const Def* type) { return unify(new Error(HENK_TABLE_NAME(), type)); }
 
     const DefSet& defs() const { return defs_; }
 
@@ -455,8 +452,6 @@ protected:
     void destroy(const Def*, thorin::HashSet<const Def*>& done);
 
     Defs defs_;
-    const Tuple* unit_; ///< tuple().
-    const Error* type_error_;
 
     friend class Lambda;
 };

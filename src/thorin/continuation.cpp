@@ -312,15 +312,15 @@ std::pair<Continuation*, const Def*> Continuation::call(const Def* to, Defs args
     std::vector<const Def*> cont_args;
     cont_args.push_back(world().mem_type());
     bool pack = false;
-    if (auto tuple = ret_type->isa<TupleType>()) {
+    if (auto tuple = ret_type->isa<Tuple>()) {
         pack = true;
         for (auto op : tuple->ops())
             cont_args.push_back(op);
     } else
         cont_args.push_back(ret_type);
 
-    auto next = world().continuation(world().fn_type(cont_args), to->loc(), name);
-    next->param(0)->name = "mem";
+    auto next = world().continuation(world().fn_type(cont_args), to->loc(), name());
+    next->param(0)->name_ = "mem";
 
     // create jump to next
     size_t csize = args.size() + 1;
@@ -338,7 +338,7 @@ std::pair<Continuation*, const Def*> Continuation::call(const Def* to, Defs args
 
     } else
         ret = next->param(1);
-    ret->name = to->name;
+    ret->name_ = to->name();
 
     return std::make_pair(next, ret);
 }
@@ -371,7 +371,7 @@ const Def* Continuation::set_value(size_t handle, const Def* def) {
     return values_[handle] = def;
 }
 
-const Def* Continuation::get_value(size_t handle, const Type* type, const char* name) {
+const Def* Continuation::get_value(size_t handle, const Def* type, const char* name) {
     if (auto def = find_def(handle))
         return def;
 
@@ -440,7 +440,7 @@ void Continuation::seal() {
     todos_.clear();
 }
 
-const Def* Continuation::fix(size_t handle, size_t index, const Type* type, const char* name) {
+const Def* Continuation::fix(size_t handle, size_t index, const Def* type, const char* name) {
     auto param = this->param(index);
 
     assert(is_sealed() && "must be sealed");
