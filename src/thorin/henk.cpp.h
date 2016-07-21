@@ -180,8 +180,8 @@ const Def* TableBase<T>::app(const Def* callee, const Def* op) {
 }
 
 template<class T>
-const Def* TableBase<T>::unify_base(const Def* type) {
-    if (type->is_hashed() || !type->is_closed())
+const Def* TableBase<T>::unify_base(const Def* def) {
+    if (def->is_hashed())
         return type;
 
     auto i = types_.find(type);
