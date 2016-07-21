@@ -49,10 +49,10 @@ class World : public TableBase<World>, public Streamable {
     const PrimType* type_##T(size_t length = 1) { return length == 1 ? T##_ : new PrimType(*this, PrimType_##T, length); }
 #include "thorin/tables/primtypetable.h"
 
-    const PrimType* type(PrimTypeKind kind, size_t length = 1) {
-        size_t i = kind - Begin_PrimType;
+    const PrimType* type(PrimTypeTag tag, size_t length = 1) {
+        size_t i = tag - Begin_PrimType;
         assert(i < (size_t) Num_PrimTypes);
-        return length == 1 ? primtypes_[i] : unify(new PrimType(*this, kind, length));
+        return length == 1 ? primtypes_[i] : unify(new PrimType(*this, tag, length));
     }
     const MemType* mem_type() const { return mem_; }
     const FrameType* frame_type() const { return frame_; }
@@ -71,25 +71,25 @@ class World : public TableBase<World>, public Streamable {
 #define THORIN_ALL_TYPE(T, M) \
     const Def* literal_##T(T val, const Location& loc, size_t length = 1) { return literal(PrimType_##T, Box(val), loc, length); }
 #include "thorin/tables/primtypetable.h"
-    const Def* literal(PrimTypeKind kind, Box box, const Location& loc, size_t length = 1) { return splat(cse(new PrimLit(*this, kind, box, loc, "")), length); }
+    const Def* literal(PrimTypeTag tag, Box box, const Location& loc, size_t length = 1) { return splat(cse(new PrimLit(*this, tag, box, loc, "")), length); }
     template<class T>
-    const Def* literal(T value, const Location& loc, size_t length = 1) { return literal(type2kind<T>::kind, Box(value), loc, length); }
-    const Def* zero(PrimTypeKind kind, const Location& loc, size_t length = 1) { return literal(kind, 0, loc, length); }
-    const Def* zero(const Def* type, const Location& loc, size_t length = 1) { return zero(type->as<PrimType>()->primtype_kind(), loc, length); }
-    const Def* one(PrimTypeKind kind, const Location& loc, size_t length = 1) { return literal(kind, 1, loc, length); }
-    const Def* one(const Def* type, const Location& loc, size_t length = 1) { return one(type->as<PrimType>()->primtype_kind(), loc, length); }
-    const Def* allset(PrimTypeKind kind, const Location& loc, size_t length = 1) { return literal(kind, -1, loc, length); }
-    const Def* allset(const Def* type, const Location& loc, size_t length = 1) { return allset(type->as<PrimType>()->primtype_kind(), loc, length); }
+    const Def* literal(T value, const Location& loc, size_t length = 1) { return literal(type2tag<T>::tag, Box(value), loc, length); }
+    const Def* zero(PrimTypeTag tag, const Location& loc, size_t length = 1) { return literal(tag, 0, loc, length); }
+    const Def* zero(const Def* type, const Location& loc, size_t length = 1) { return zero(type->as<PrimType>()->primtype_tag(), loc, length); }
+    const Def* one(PrimTypeTag tag, const Location& loc, size_t length = 1) { return literal(tag, 1, loc, length); }
+    const Def* one(const Def* type, const Location& loc, size_t length = 1) { return one(type->as<PrimType>()->primtype_tag(), loc, length); }
+    const Def* allset(PrimTypeTag tag, const Location& loc, size_t length = 1) { return literal(tag, -1, loc, length); }
+    const Def* allset(const Def* type, const Location& loc, size_t length = 1) { return allset(type->as<PrimType>()->primtype_tag(), loc, length); }
     const Def* bottom(const Def* type, const Location& loc, size_t length = 1) { return splat(cse(new Bottom(type, loc, "")), length); }
-    const Def* bottom(PrimTypeKind kind, const Location& loc, size_t length = 1) { return bottom(type(kind), loc, length); }
+    const Def* bottom(PrimTypeTag tag, const Location& loc, size_t length = 1) { return bottom(type(tag), loc, length); }
 
     // arithops
 
     /// Creates an \p ArithOp or a \p Cmp.
-    const Def* binop(int kind, const Def* lhs, const Def* rhs, const Location& loc, const std::string& name = "");
+    const Def* binop(int tag, const Def* lhs, const Def* rhs, const Location& loc, const std::string& name = "");
     const Def* arithop_not(const Def* def, const Location& loc);
     const Def* arithop_minus(const Def* def, const Location& loc);
-    const Def* arithop(ArithOpKind kind, const Def* lhs, const Def* rhs, const Location& loc, const std::string& name = "");
+    const Def* arithop(ArithOpTag tag, const Def* lhs, const Def* rhs, const Location& loc, const std::string& name = "");
 #define THORIN_ARITHOP(OP) \
     const Def* arithop_##OP(const Def* lhs, const Def* rhs, const Location& loc, const std::string& name = "") { \
         return arithop(ArithOp_##OP, lhs, rhs, loc, name); \
@@ -98,7 +98,7 @@ class World : public TableBase<World>, public Streamable {
 
     // compares
 
-    const Def* cmp(CmpKind kind, const Def* lhs, const Def* rhs, const Location& loc, const std::string& name = "");
+    const Def* cmp(CmpTag tag, const Def* lhs, const Def* rhs, const Location& loc, const std::string& name = "");
 #define THORIN_CMP(OP) \
     const Def* cmp_##OP(const Def* lhs, const Def* rhs, const Location& loc, const std::string& name = "") { \
         return cmp(Cmp_##OP, lhs, rhs, loc, name);  \

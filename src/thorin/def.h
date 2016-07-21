@@ -26,13 +26,13 @@ bool is_minus_zero(const Def*);
 inline bool is_zero       (const Def* def) { return is_primlit(def, 0); }
 inline bool is_one        (const Def* def) { return is_primlit(def, 1); }
 inline bool is_allset     (const Def* def) { return is_primlit(def, -1); }
-inline bool is_bitop      (const Def* def) { return thorin::is_bitop(def->kind()); }
-inline bool is_shift      (const Def* def) { return thorin::is_shift(def->kind()); }
-inline bool is_not        (const Def* def) { return def->kind() == Node_xor && is_allset(def->op(0)); }
-inline bool is_minus      (const Def* def) { return def->kind() == Node_sub && is_minus_zero(def->op(0)); }
-inline bool is_div_or_rem (const Def* def) { return thorin::is_div_or_rem(def->kind()); }
-inline bool is_commutative(const Def* def) { return thorin::is_commutative(def->kind()); }
-inline bool is_associative(const Def* def) { return thorin::is_associative(def->kind()); }
+inline bool is_bitop      (const Def* def) { return thorin::is_bitop(def->tag()); }
+inline bool is_shift      (const Def* def) { return thorin::is_shift(def->tag()); }
+inline bool is_not        (const Def* def) { return def->tag() == Node_xor && is_allset(def->op(0)); }
+inline bool is_minus      (const Def* def) { return def->tag() == Node_sub && is_minus_zero(def->op(0)); }
+inline bool is_div_or_rem (const Def* def) { return thorin::is_div_or_rem(def->tag()); }
+inline bool is_commutative(const Def* def) { return thorin::is_commutative(def->tag()); }
+inline bool is_associative(const Def* def) { return thorin::is_associative(def->tag()); }
 
 }
 
@@ -114,7 +114,7 @@ private:
     Def(const Def&);              ///< Do not copy-construct a \p Def.
 
 protected:
-    Def(NodeKind kind, const Type* type, size_t size, const Location& loc, const std::string& name);
+    Def(NodeTag tag, const Type* type, size_t size, const Location& loc, const std::string& name);
     virtual ~Def() {}
 
     void clear_type() { type_ = nullptr; }
@@ -124,7 +124,7 @@ protected:
     void resize(size_t n) { ops_.resize(n, nullptr); }
 
 public:
-    NodeKind kind() const { return kind_; }
+    NodeTag tag() const { return tag_; }
     size_t num_ops() const { return ops_.size(); }
     bool empty() const { return ops_.empty(); }
     void set_op(size_t i, const Def* def);
@@ -150,7 +150,7 @@ public:
     static size_t gid_counter() { return gid_counter_; }
 
 private:
-    const NodeKind kind_;
+    const NodeTag tag_;
     std::vector<const Def*> ops_;
     const Type* type_;
     mutable Uses uses_;
@@ -178,13 +178,13 @@ inline bool is_mem        (const Def* def) { return def->type()->isa<MemType>();
 inline bool is_zero       (const Def* def) { return is_primlit(def, 0); }
 inline bool is_one        (const Def* def) { return is_primlit(def, 1); }
 inline bool is_allset     (const Def* def) { return is_primlit(def, -1); }
-inline bool is_bitop      (const Def* def) { return thorin::is_bitop(def->kind()); }
-inline bool is_shift      (const Def* def) { return thorin::is_shift(def->kind()); }
-inline bool is_not        (const Def* def) { return def->kind() == Node_xor && is_allset(def->op(0)); }
-inline bool is_minus      (const Def* def) { return def->kind() == Node_sub && is_minus_zero(def->op(0)); }
-inline bool is_div_or_rem (const Def* def) { return thorin::is_div_or_rem(def->kind()); }
-inline bool is_commutative(const Def* def) { return thorin::is_commutative(def->kind()); }
-inline bool is_associative(const Def* def) { return thorin::is_associative(def->kind()); }
+inline bool is_bitop      (const Def* def) { return thorin::is_bitop(def->tag()); }
+inline bool is_shift      (const Def* def) { return thorin::is_shift(def->tag()); }
+inline bool is_not        (const Def* def) { return def->tag() == Node_xor && is_allset(def->op(0)); }
+inline bool is_minus      (const Def* def) { return def->tag() == Node_sub && is_minus_zero(def->op(0)); }
+inline bool is_div_or_rem (const Def* def) { return thorin::is_div_or_rem(def->tag()); }
+inline bool is_commutative(const Def* def) { return thorin::is_commutative(def->tag()); }
+inline bool is_associative(const Def* def) { return thorin::is_associative(def->tag()); }
 
 namespace detail {
     inline std::ostream& stream(std::ostream& os, const Def* def) { return def->stream(os); }

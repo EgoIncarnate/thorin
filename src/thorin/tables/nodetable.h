@@ -45,7 +45,7 @@
         THORIN_NODE(FrameType, frame)
         THORIN_NODE(IndefiniteArrayType, indefinite_array_type)
         THORIN_NODE(Lambda, lambda)
-        THORIN_NODE(Star, kind)
+        THORIN_NODE(Star, type)
         THORIN_NODE(MemType, mem)
         THORIN_NODE(PtrType, ptr)
         THORIN_NODE(StructType, struct_type)

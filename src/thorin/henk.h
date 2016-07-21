@@ -78,22 +78,29 @@ typedef thorin::ArrayRef<const Def*> Defs;
 
 /// Base class for all \p Def%s.
 class Def : public thorin::HasLocation, public thorin::Streamable, public thorin::MagicCast<Def> {
+public:
+    enum Sort {
+        Term, Type, Kind
+    };
+
 protected:
     Def(const Def&) = delete;
     Def& operator=(const Def&) = delete;
 
-    Def(HENK_TABLE_TYPE& table, int kind, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
+    /// Use for nominal @p Def%s.
+    Def(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
         : HENK_TABLE_NAME_(table)
-        , kind_(kind)
+        , tag_(tag)
         , ops_(num_ops)
         , gid_(gid_counter_++)
         , nominal_(true)
     {
     }
 
-    Def(HENK_TABLE_TYPE& table, int kind, const Def* type, Defs ops, const Location& loc, const std::string& name)
+    /// Use for structural @p Def%s.
+    Def(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
         : HENK_TABLE_NAME_(table)
-        , kind_(kind)
+        , tag_(tag)
         , ops_(ops.size())
         , gid_(gid_counter_++)
         , nominal_(false)
@@ -112,7 +119,7 @@ protected:
     }
 
 public:
-    int kind() const { return kind_; }
+    int tag() const { return tag_; }
     HENK_TABLE_TYPE& HENK_TABLE_NAME() const { return HENK_TABLE_NAME_; }
 
     Defs ops() const { return ops_; }
@@ -164,7 +171,7 @@ private:
     virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const = 0;
 
     HENK_TABLE_TYPE& HENK_TABLE_NAME_;
-    int kind_;
+    int tag_;
     const Def* type_;
     thorin::Array<const Def*> ops_;
     std::string name_;
@@ -196,7 +203,7 @@ private:
 class Star : public Def {
 private:
     Star(HENK_TABLE_TYPE& table)
-        : Def(table, Node_Star, nullptr, {}, Location(), "kind")
+        : Def(table, Node_Star, nullptr, {}, Location(), "type")
     {}
 
 public:

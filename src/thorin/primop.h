@@ -12,8 +12,8 @@ namespace thorin {
 /// Base class for all @p PrimOp%s.
 class PrimOp : public Def {
 protected:
-    PrimOp(NodeKind kind, const Def* type, Defs ops, const Location& loc, const std::string& name)
-        : Def(type->world(), kind, type, ops.size(), loc, name)
+    PrimOp(NodeTag tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
+        : Def(type->world(), tag, type, ops.size(), loc, name)
         , is_outdated_(false)
     {
         for (size_t i = 0, e = num_ops(); i != e; ++i)
@@ -22,6 +22,9 @@ protected:
 
 public:
     const Def* out(size_t i) const;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override; // TODO
+    virtual const Def* vrebuild(World& to, Defs ops) const override; // TODO
+    virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const = 0;
     virtual bool is_outdated() const override { return is_outdated_; }
     virtual const Def* rebuild(Def2Def&) const override;
     const Def* rebuild(World& to, Defs ops, const Def* type) const {
@@ -38,7 +41,6 @@ public:
 protected:
     virtual uint64_t vhash() const;
     virtual bool equal(const PrimOp* other) const;
-    virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const = 0;
     /// Is @p def the @p i^th result of a @p T @p PrimOp?
     template<int i, class T> inline static const T* is_out(const Def* def);
 
@@ -69,8 +71,8 @@ struct PrimOpEqual {
 /// Base class for all @p PrimOp%s without operands.
 class Literal : public PrimOp {
 protected:
-    Literal(NodeKind kind, const Def* type, const Location& loc, const std::string& name)
-        : PrimOp(kind, type, {}, loc, name)
+    Literal(NodeTag tag, const Def* type, const Location& loc, const std::string& name)
+        : PrimOp(tag, type, {}, loc, name)
     {}
 };
 
@@ -89,7 +91,7 @@ private:
 /// Data constructor for a @p PrimType.
 class PrimLit : public Literal {
 private:
-    PrimLit(World& world, PrimTypeKind kind, Box box, const Location& loc, const std::string& name);
+    PrimLit(World& world, PrimTypeTag tag, Box box, const Location& loc, const std::string& name);
 
 public:
     Box value() const { return box_; }
@@ -97,7 +99,7 @@ public:
 #include "thorin/tables/primtypetable.h"
 
     const PrimType* type() const { return Literal::type()->as<PrimType>(); }
-    PrimTypeKind primtype_kind() const { return type()->primtype_kind(); }
+    PrimTypeTag primtype_tag() const { return type()->primtype_tag(); }
 
     std::ostream& stream(std::ostream&) const override;
 
@@ -115,7 +117,7 @@ template<class T>
 T primlit_value(const Def* def) {
     static_assert(std::is_integral<T>::value, "only integral types supported");
     auto lit = def->as<PrimLit>();
-    switch (lit->primtype_kind()) {
+    switch (lit->primtype_tag()) {
 #define THORIN_I_TYPE(T, M) case PrimType_##T: return lit->value().get_##T();
 #include "thorin/tables/primtypetable.h"
         default: THORIN_UNREACHABLE;
@@ -150,8 +152,8 @@ public:
 /// Base class for all side-effect free binary \p PrimOp%s.
 class BinOp : public PrimOp {
 protected:
-    BinOp(NodeKind kind, const Def* type, const Def* lhs, const Def* rhs, const Location& loc, const std::string& name)
-        : PrimOp(kind, type, {lhs, rhs}, loc, name)
+    BinOp(NodeTag tag, const Def* type, const Def* lhs, const Def* rhs, const Location& loc, const std::string& name)
+        : PrimOp(tag, type, {lhs, rhs}, loc, name)
     {
         assert(lhs->type() == rhs->type() && "types are not equal");
     }
@@ -161,33 +163,33 @@ public:
     const Def* rhs() const { return op(1); }
 };
 
-/// One of \p ArithOpKind arithmetic operation.
+/// One of \p ArithOpTag arithmetic operation.
 class ArithOp : public BinOp {
 private:
-    ArithOp(ArithOpKind kind, const Def* lhs, const Def* rhs, const Location& loc, const std::string& name)
-        : BinOp((NodeKind) kind, lhs->type(), lhs, rhs, loc, name)
+    ArithOp(ArithOpTag tag, const Def* lhs, const Def* rhs, const Location& loc, const std::string& name)
+        : BinOp((NodeTag) tag, lhs->type(), lhs, rhs, loc, name)
     {}
 
     virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const override;
 
 public:
     const PrimType* type() const { return BinOp::type()->as<PrimType>(); }
-    ArithOpKind arithop_kind() const { return (ArithOpKind) kind(); }
+    ArithOpTag arithop_tag() const { return (ArithOpTag) tag(); }
     virtual const char* op_name() const override;
 
     friend class World;
 };
 
-/// One of \p CmpKind compare.
+/// One of \p CmpTag compare.
 class Cmp : public BinOp {
 private:
-    Cmp(CmpKind kind, const Def* lhs, const Def* rhs, const Location& loc, const std::string& name);
+    Cmp(CmpTag tag, const Def* lhs, const Def* rhs, const Location& loc, const std::string& name);
 
     virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const override;
 
 public:
     const PrimType* type() const { return BinOp::type()->as<PrimType>(); }
-    CmpKind cmp_kind() const { return (CmpKind) kind(); }
+    CmpTag cmp_tag() const { return (CmpTag) tag(); }
     virtual const char* op_name() const override;
 
     friend class World;
@@ -196,8 +198,8 @@ public:
 /// Base class for @p Bitcast and @p Cast.
 class ConvOp : public PrimOp {
 protected:
-    ConvOp(NodeKind kind, const Def* from, const Def* to_type, const Location& loc, const std::string& name)
-        : PrimOp(kind, to_type, {from}, loc, name)
+    ConvOp(NodeTag tag, const Def* from, const Def* to_type, const Location& loc, const std::string& name)
+        : PrimOp(tag, to_type, {from}, loc, name)
     {}
 
 public:
@@ -231,8 +233,8 @@ private:
 /// Base class for all aggregate data constructers.
 class Aggregate : public PrimOp {
 protected:
-    Aggregate(NodeKind kind, Defs ops, const Location& loc, const std::string& name)
-        : PrimOp(kind, nullptr /*set later*/, ops, loc, name)
+    Aggregate(NodeTag tag, Defs ops, const Location& loc, const std::string& name)
+        : PrimOp(tag, nullptr /*set later*/, ops, loc, name)
     {}
 };
 
@@ -299,8 +301,8 @@ private:
 /// Base class for functional @p Insert and @p Extract.
 class AggOp : public PrimOp {
 protected:
-    AggOp(NodeKind kind, const Def* type, Defs ops, const Location& loc, const std::string& name)
-        : PrimOp(kind, type, ops, loc, name)
+    AggOp(NodeTag tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
+        : PrimOp(tag, type, ops, loc, name)
     {}
 
 public:
@@ -370,8 +372,8 @@ public:
 /// Base class for \p Run and \p Hlt.
 class EvalOp : public PrimOp {
 protected:
-    EvalOp(NodeKind kind, const Def* begin, const Def* end, const Location& loc, const std::string& name)
-        : PrimOp(kind, begin->type(), {begin, end}, loc, name)
+    EvalOp(NodeTag tag, const Def* begin, const Def* end, const Location& loc, const std::string& name)
+        : PrimOp(tag, begin->type(), {begin, end}, loc, name)
     {}
 
 public:
@@ -455,8 +457,8 @@ private:
 /// Base class for all \p PrimOp%s taking and producing side-effects.
 class MemOp : public PrimOp {
 protected:
-    MemOp(NodeKind kind, const Def* type, Defs ops, const Location& loc, const std::string& name)
-        : PrimOp(kind, type, ops, loc, name)
+    MemOp(NodeTag tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
+        : PrimOp(tag, type, ops, loc, name)
     {
         assert(mem()->type()->isa<MemType>());
         assert(ops.size() >= 1);
@@ -495,8 +497,8 @@ private:
 /// Base class for @p Load and @p Store.
 class Access : public MemOp {
 protected:
-    Access(NodeKind kind, const Def* type, Defs ops, const Location& loc, const std::string& name)
-        : MemOp(kind, type, ops, loc, name)
+    Access(NodeTag tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
+        : MemOp(tag, type, ops, loc, name)
     {
         assert(ops.size() >= 2);
     }

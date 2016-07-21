@@ -30,14 +30,14 @@ uint64_t Def::vhash() const {
     if (is_nominal())
         return gid();
 
-    uint64_t seed = thorin::hash_combine(thorin::hash_begin(int(kind())), num_ops(), type() ? type()->gid() : 0);
+    uint64_t seed = thorin::hash_combine(thorin::hash_begin(int(tag())), num_ops(), type() ? type()->gid() : 0);
     for (auto op : ops_)
         seed = thorin::hash_combine(seed, op->hash());
     return seed;
 }
 
 uint64_t Var::vhash() const {
-    return thorin::hash_combine(thorin::hash_begin(int(kind())), depth());
+    return thorin::hash_combine(thorin::hash_begin(int(tag())), depth());
 }
 
 //------------------------------------------------------------------------------
@@ -50,7 +50,7 @@ bool Def::equal(const Def* other) const {
     if (is_nominal())
         return this == other;
 
-    bool result = this->kind() == other->kind() && this->num_ops() == other->num_ops()
+    bool result = this->tag() == other->tag() && this->num_ops() == other->num_ops()
         && this->is_monomorphic() == other->is_monomorphic();
 
     if (result) {

@@ -25,14 +25,14 @@ StructType::StructType(World& world, size_t num_ops, const Location& loc, const 
     nominal_ = true;
 }
 
-Type::Type(World& world, int kind, Defs ops)
-    : Def(world, kind, world.star(), ops, Location(), "TODO")
+Type::Type(World& world, int tag, Defs ops)
+    : Def(world, tag, world.star(), ops, Location(), "TODO")
 {}
 
 const VectorType* VectorType::scalarize() const {
     if (auto ptr = isa<PtrType>())
         return world().ptr_type(ptr->referenced_type());
-    return world().type(as<PrimType>()->primtype_kind());
+    return world().type(as<PrimType>()->primtype_tag());
 }
 
 bool FnType::is_returning() const {
@@ -73,7 +73,7 @@ const Type* FnType             ::vrebuild(World& to, Types ops) const { return t
 const Type* FrameType          ::vrebuild(World& to, Types     ) const { return to.frame_type(); }
 const Type* IndefiniteArrayType::vrebuild(World& to, Types ops) const { return to.indefinite_array_type(ops[0]); }
 const Type* MemType            ::vrebuild(World& to, Types     ) const { return to.mem_type(); }
-const Type* PrimType           ::vrebuild(World& to, Types     ) const { return to.type(primtype_kind(), length()); }
+const Type* PrimType           ::vrebuild(World& to, Types     ) const { return to.type(primtype_tag(), length()); }
 
 const Type* PtrType::vrebuild(World& to, Types ops) const {
     return to.ptr_type(ops.front(), length(), device(), addr_space());
@@ -146,7 +146,7 @@ std::ostream& PrimType::stream(std::ostream& os) const {
     if (is_vector())
         os << "<" << length() << " x ";
 
-    switch (primtype_kind()) {
+    switch (primtype_tag()) {
 #define THORIN_ALL_TYPE(T, M) case Node_PrimType_##T: os << #T; break;
 #include "thorin/tables/primtypetable.h"
           default: THORIN_UNREACHABLE;
