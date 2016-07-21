@@ -13,7 +13,7 @@ namespace thorin {
 class PrimOp : public Def {
 protected:
     PrimOp(NodeTag tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
-        : Def(type->world(), tag, type, ops.size(), loc, name)
+        : Def(type->world(), tag, Sort::Term, type, ops.size(), loc, name)
         , is_outdated_(false)
     {
         for (size_t i = 0, e = num_ops(); i != e; ++i)

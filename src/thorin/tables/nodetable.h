@@ -49,7 +49,7 @@
         THORIN_NODE(MemType, mem)
         THORIN_NODE(PtrType, ptr)
         THORIN_NODE(StructType, struct_type)
-        THORIN_NODE(TypeError, type_error)
+        THORIN_NODE(Error, error)
         THORIN_NODE(Var, var)
 
 #undef THORIN_NODE

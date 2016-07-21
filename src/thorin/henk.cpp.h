@@ -20,6 +20,21 @@ size_t Def::gid_counter_ = 1;
 
 const Def* Def::op(size_t i) const { return i < num_ops() ? ops()[i] : HENK_TABLE_NAME().type_error(); }
 
+static const Def* Lambda::infer_type(HENK_TABLE_TYPE& table, Sort sort, const Def* var_type, const Def* body, const Location& loc, const std::string& name) {
+    switch (sort) {
+        case Term: 
+            return table.pi(var_type, body);
+        case Type: 
+            if (body->sort() == Sort::Type)
+                return table.star();
+            if (body->sort() == Sort::Kind)
+                return nullptr;
+            // FALLTHROUGH
+        default:
+            THORIN_UNREACHABLE;
+    }
+}
+
 //------------------------------------------------------------------------------
 
 /*

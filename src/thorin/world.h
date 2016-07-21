@@ -127,7 +127,6 @@ class World : public TableBase<World>, public Streamable {
     const Def* struct_agg(const StructType* struct_type, Defs args, const Location& loc, const std::string& name = "") {
         return cse(new StructAgg(struct_type, args, loc, name));
     }
-    const Def* tuple(Defs args, const Location& loc, const std::string& name = "") { return cse(new Tuple(*this, args, loc, name)); }
     const Def* vector(Defs args, const Location& loc, const std::string& name = "") {
         if (args.size() == 1) return args[0];
         return cse(new Vector(*this, args, loc, name));

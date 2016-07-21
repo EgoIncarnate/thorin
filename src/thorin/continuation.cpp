@@ -43,7 +43,7 @@ Continuation* Continuation::stub(Def2Def&, const std::string& name) const {
     auto fn_type = type();
     auto result = world().continuation(fn_type, loc(), cc(), intrinsic(), name);
     for (size_t i = 0, e = num_params(); i != e; ++i)
-        result->param(i)->name = param(i)->name;
+        result->param(i)->name_ = param(i)->name();
 
     return result;
 }

@@ -218,6 +218,14 @@ auto concat(const T& a, const U& b) -> Array<typename T::value_type> {
 }
 
 template<class T>
+auto concat(const T& val, ArrayRef<T> a) -> Array<T> {
+    Array<T> result(a.size() + 1);
+    std::copy(a.begin(), a.end(), result.begin()+1);
+    result.front() = val;
+    return result;
+}
+
+template<class T>
 Array<typename T::value_type> make_array(const T& container) {
     return Array<typename T::value_type>(container.begin(), container.end());
 }
