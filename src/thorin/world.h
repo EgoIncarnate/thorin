@@ -65,7 +65,7 @@ public:
     const FnType* fn_type(Defs args) { return unify(new FnType(*this, args)); }
     const DefiniteArrayType*   definite_array_type(const Def* elem, u64 dim) { return unify(new DefiniteArrayType(*this, elem, dim)); }
     const IndefiniteArrayType* indefinite_array_type(const Def* elem) { return unify(new IndefiniteArrayType(*this, elem)); }
-    const StructType* struct_type(size_t size, const Location& loc, const std::string& name);
+    const StructType* struct_type(size_t size, const std::string& name);
 
     // literals
 

@@ -211,17 +211,21 @@ class Lambda : public Def {
 private:
     Lambda(HENK_TABLE_TYPE& table, Sort sort, const Def* var_type, const Def* body, const Location& loc, const std::string& name)
         : Def(table, Node_Lambda, sort, infer_type(table, sort, var_type, body, loc, name), {body}, loc, name)
+        , var_type_(var_type)
     {}
 
     static const Def* infer_type(HENK_TABLE_TYPE& table, Sort sort, const Def* var_type, const Def* body, const Location& loc, const std::string& name);
 
 public:
     const Def* body() const { return op(0); }
+    const Def* var_type() const { return var_type_; }
     virtual std::ostream& stream(std::ostream&) const override;
 
 private:
     virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const override;
     virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
+
+    const Def* var_type_;
 
     template<class> friend class TableBase;
 };

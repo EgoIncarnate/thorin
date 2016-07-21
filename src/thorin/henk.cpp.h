@@ -102,17 +102,17 @@ const Def* Def::rebuild(HENK_TABLE_TYPE& to, Defs ops) const {
 }
 
 const Def* StructType::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const {
-    auto ntype = to.struct_type(HENK_STRUCT_EXTRA_NAME(), ops.size());
+    auto ntype = to.struct_type(ops.size(), HENK_STRUCT_EXTRA_NAME());
     for (size_t i = 0, e = ops.size(); i != e; ++i)
         const_cast<StructType*>(ntype)->set(i, ops[i]);
     return ntype;
 }
 
-const Def* App      ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.app(ops[0], ops[1]); }
-const Def* Tuple    ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.tuple(ops); }
-const Def* Lambda   ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.lambda(ops[0], name()); }
-const Def* Var      ::vrebuild(HENK_TABLE_TYPE& to, Defs    ) const { return to.var(depth()); }
-const Def* TypeError::vrebuild(HENK_TABLE_TYPE&,    Defs    ) const { return this; }
+const Def* App   ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.app(ops[0], ops[1]); }
+const Def* Tuple ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.tuple(sort(), ops, loc(), name()); }
+const Def* Lambda::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.lambda(sort(), var_type(), ops[0], name()); }
+const Def* Var   ::vrebuild(HENK_TABLE_TYPE& to, Defs    ) const { return to.var(depth()); }
+const Def* Error ::vrebuild(HENK_TABLE_TYPE&,    Defs    ) const { return this; }
 
 //------------------------------------------------------------------------------
 
@@ -120,7 +120,7 @@ const Def* TypeError::vrebuild(HENK_TABLE_TYPE&,    Defs    ) const { return thi
  * reduce
  */
 
-const Def* Type::reduce(int depth, const Def* type, Def2Def& map) const {
+const Def* Def::reduce(int depth, const Def* type, Def2Def& map) const {
     if (auto result = find(map, this))
         return result;
     if (is_monomorphic())
@@ -128,7 +128,7 @@ const Def* Type::reduce(int depth, const Def* type, Def2Def& map) const {
     return map[this] = vreduce(depth, type, map);
 }
 
-Array<const Def*> Type::reduce_ops(int depth, const Def* type, Def2Def& map) const {
+Array<const Def*> Def::reduce_ops(int depth, const Def* type, Def2Def& map) const {
     Array<const Def*> result(num_ops());
     for (size_t i = 0, e = num_ops(); i != e; ++i)
         result[i] = op(i)->reduce(depth, type, map);
@@ -136,7 +136,7 @@ Array<const Def*> Type::reduce_ops(int depth, const Def* type, Def2Def& map) con
 }
 
 const Def* Lambda::vreduce(int depth, const Def* type, Def2Def& map) const {
-    return HENK_TABLE_NAME().lambda(body()->reduce(depth+1, type, map), name());
+    return HENK_TABLE_NAME().lambda(sort(), var_type(), body()->reduce(depth+1, type, map), name());
 }
 
 const Def* Var::vreduce(int depth, const Def* type, Def2Def&) const {
@@ -149,7 +149,7 @@ const Def* Var::vreduce(int depth, const Def* type, Def2Def&) const {
 }
 
 const Def* StructType::vreduce(int depth, const Def* type, Def2Def& map) const {
-    auto struct_type = HENK_TABLE_NAME().struct_type(HENK_STRUCT_EXTRA_NAME(), num_ops());
+    auto struct_type = HENK_TABLE_NAME().struct_type(num_ops(), HENK_STRUCT_EXTRA_NAME());
     map[this] = struct_type;
     auto ops = reduce_ops(depth, type, map);
 
