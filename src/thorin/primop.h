@@ -2,6 +2,7 @@
 #define THORIN_PRIMOP_H
 
 #include "thorin/def.h"
+#include "thorin/type.h"
 #include "thorin/enums.h"
 #include "thorin/util/hash.h"
 

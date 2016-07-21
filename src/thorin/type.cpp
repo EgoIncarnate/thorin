@@ -11,12 +11,6 @@
 
 namespace thorin {
 
-#define HENK_STRUCT_EXTRA_NAME name
-#define HENK_STRUCT_EXTRA_TYPE const char*
-#define HENK_TABLE_NAME world
-#define HENK_TABLE_TYPE World
-#include "thorin/henk.cpp.h"
-
 //------------------------------------------------------------------------------
 
 StructType::StructType(World& world, size_t num_ops, const Location& loc, const std::string& name)

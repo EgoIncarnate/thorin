@@ -18,19 +18,19 @@ size_t Def::gid_counter_ = 1;
 
 //------------------------------------------------------------------------------
 
-const Def* Def::op(size_t i) const { return i < num_ops() ? ops()[i] : HENK_TABLE_NAME().type_error(); }
+const Def* Def::op(size_t i) const { return i < num_ops() ? ops()[i] : HENK_TABLE_NAME().error(); }
 
 std::string Def::unique_name() const {
     std::ostringstream oss;
-    oss << name << '_' << gid();
+    oss << name() << '_' << gid();
     return oss.str();
 }
 
-static const Def* Lambda::infer_type(HENK_TABLE_TYPE& table, Sort sort, const Def* var_type, const Def* body, const Location& loc, const std::string& name) {
+const Def* Lambda::infer_type(HENK_TABLE_TYPE& table, Sort sort, const Def* var_type, const Def* body, const Location& loc, const std::string& name) {
     switch (sort) {
-        case Term: 
-            return table.pi(var_type, body);
-        case Type: 
+        case Sort::Term: 
+            return table.pi(var_type, body, name + std::string("_type"));
+        case Sort::Type: 
             if (body->sort() == Sort::Type)
                 return table.star();
             if (body->sort() == Sort::Kind)

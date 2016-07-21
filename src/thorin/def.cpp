@@ -1,4 +1,3 @@
-#if 0
 #include "thorin/def.h"
 
 #include <algorithm>
@@ -14,6 +13,14 @@
 #include "thorin/util/log.h"
 
 namespace thorin {
+
+#define HENK_STRUCT_EXTRA_NAME name
+#define HENK_STRUCT_EXTRA_TYPE const char*
+#define HENK_TABLE_NAME world
+#define HENK_TABLE_TYPE World
+#include "thorin/henk.cpp.h"
+
+#if 0
 
 //------------------------------------------------------------------------------
 
@@ -167,5 +174,5 @@ std::ostream& Def::stream(std::ostream& out) const { return out << unique_name()
 
 HashSet<Tracker*>& Tracker::trackers(const Def* def) { return def->world().trackers_[def]; }
 
-}
 #endif
+}
