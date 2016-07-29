@@ -254,28 +254,6 @@ public:
     friend class World;
 };
 
-/// Data constructor for a @p StructType.
-class StructAgg : public Aggregate {
-private:
-    StructAgg(const StructType* struct_type, Defs ops, const Location& loc, const std::string& name)
-        : Aggregate(Node_StructAgg, ops, loc, name)
-    {
-#ifndef NDEBUG
-        assert(struct_type->num_ops() == ops.size());
-        for (size_t i = 0, e = ops.size(); i != e; ++i)
-            assert(struct_type->op(i) == ops[i]->type());
-#endif
-        set_type(struct_type);
-    }
-
-    virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const override;
-
-public:
-    const StructType* type() const { return Aggregate::type()->as<StructType>(); }
-
-    friend class World;
-};
-
 /// Data constructor for a vector type.
 class Vector : public Aggregate {
 private:

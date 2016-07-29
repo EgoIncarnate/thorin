@@ -117,10 +117,10 @@ const Def* StructType::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const {
 }
 
 const Def* App   ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.app(ops[0], ops[1], loc(), name()); }
-const Def* Tuple ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.tuple(ops, loc(), loc(), name()); }
-const Def* Lambda::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.lambda(domain(), body(), loc(), name()); }
-const Def* Var   ::vrebuild(HENK_TABLE_TYPE& to, Defs    ) const { return to.var(depth()); }
-const Def* Error ::vrebuild(HENK_TABLE_TYPE&,    Defs    ) const { return this; }
+const Def* Tuple ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.tuple(ops, loc(), name()); }
+const Def* Lambda::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.lambda(ops[0], ops[1], loc(), name()); }
+const Def* Var   ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.var(ops[1], depth()); }
+const Def* Error ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.error(ops[1]); }
 
 //------------------------------------------------------------------------------
 
@@ -128,35 +128,35 @@ const Def* Error ::vrebuild(HENK_TABLE_TYPE&,    Defs    ) const { return this; 
  * reduce
  */
 
-const Def* Def::reduce(int depth, const Def* type, Def2Def& map) const {
+const Def* Def::reduce(int depth, const Def* def, Def2Def& map) const {
     if (auto result = find(map, this))
         return result;
     if (is_monomorphic())
         return this;
-    return map[this] = vreduce(depth, type, map);
+    return map[this] = vreduce(depth, def, map);
 }
 
-Array<const Def*> Def::reduce_ops(int depth, const Def* type, Def2Def& map) const {
+Array<const Def*> Def::reduce_ops(int depth, const Def* def, Def2Def& map) const {
     Array<const Def*> result(num_ops());
     for (size_t i = 0, e = num_ops(); i != e; ++i)
-        result[i] = op(i)->reduce(depth, type, map);
+        result[i] = op(i)->reduce(depth, def, map);
     return result;
 }
 
-const Def* Lambda::vreduce(int depth, const Def* type, Def2Def& map) const {
-    return HENK_TABLE_NAME().lambda(domain(), body()->reduce(depth+1, type, map), name());
+const Def* Lambda::vreduce(int depth, const Def* def, Def2Def& map) const {
+    return HENK_TABLE_NAME().lambda(domain(), body()->reduce(depth+1, def, map), loc(), name());
 }
 
-const Def* Var::vreduce(int depth, const Def* type, Def2Def&) const {
+const Def* Var::vreduce(int depth, const Def* def, Def2Def&) const {
     if (this->depth() == depth)
-        return type;
+        return def;
     else if (this->depth() > depth)
-        return HENK_TABLE_NAME().var(this->depth()-1);  // this is a free variable - shift by one
+        return HENK_TABLE_NAME().var(type(), this->depth()-1);  // this is a free variable - shift by one
     else
-        return this;                                    // this variable is not free - don't adjust
+        return this;                                            // this variable is not free - don't adjust
 }
 
-const Def* StructType::vreduce(int depth, const Def* type, Def2Def& map) const {
+const Def* Sigma::vreduce(int depth, const Def* def, Def2Def& map) const {
     auto struct_type = HENK_TABLE_NAME().struct_type(num_ops(), HENK_STRUCT_EXTRA_NAME());
     map[this] = struct_type;
     auto ops = reduce_ops(depth, type, map);
@@ -167,16 +167,16 @@ const Def* StructType::vreduce(int depth, const Def* type, Def2Def& map) const {
     return struct_type;
 }
 
-const Def* App::vreduce(int depth, const Def* type, Def2Def& map) const {
-    auto ops = reduce_ops(depth, type, map);
+const Def* App::vreduce(int depth, const Def* def, Def2Def& map) const {
+    auto ops = reduce_ops(depth, def, map);
     return HENK_TABLE_NAME().app(ops[0], ops[1]);
 }
 
-const Def* Tuple::vreduce(int depth, const Def* type, Def2Def& map) const {
-    return HENK_TABLE_NAME().tuple(reduce_ops(depth, type, map));
+const Def* Tuple::vreduce(int depth, const Def* def, Def2Def& map) const {
+    return HENK_TABLE_NAME().tuple(reduce_ops(depth, def, map));
 }
 
-const Def* TypeError::vreduce(int, const Def*, Def2Def&) const { return this; }
+//const Def* TypeError::vreduce(int, const Def*, Def2Def&) const { return this; }
 
 //------------------------------------------------------------------------------
 

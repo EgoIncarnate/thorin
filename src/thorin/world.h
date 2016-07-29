@@ -125,9 +125,6 @@ public:
     const Def* indefinite_array(const Def* elem, const Def* dim, const Location& loc, const std::string& name = "") {
         return cse(new IndefiniteArray(*this, elem, dim, loc, name));
     }
-    const Def* struct_agg(const StructType* struct_type, Defs args, const Location& loc, const std::string& name = "") {
-        return cse(new StructAgg(struct_type, args, loc, name));
-    }
     const Def* vector(Defs args, const Location& loc, const std::string& name = "") {
         if (args.size() == 1) return args[0];
         return cse(new Vector(*this, args, loc, name));
