@@ -26,19 +26,27 @@ std::string Def::unique_name() const {
     return oss.str();
 }
 
-const Def* Lambda::infer_type(HENK_TABLE_TYPE& table, Sort sort, const Def* var_type, const Def* body, const Location& loc, const std::string& name) {
-    switch (sort) {
-        case Sort::Term: 
-            return table.pi(var_type, body, name + std::string("_type"));
-        case Sort::Type: 
-            if (body->sort() == Sort::Type)
-                return table.star();
-            if (body->sort() == Sort::Kind)
-                return nullptr;
-            // FALLTHROUGH
-        default:
-            THORIN_UNREACHABLE;
-    }
+//------------------------------------------------------------------------------
+
+/*
+ * constructors
+ */
+
+Lambda::Lambda(HENK_TABLE_TYPE& table, const Def* domain, const Def* body, const Location& loc, const std::string& name)
+    : Connective(table, Node_Lambda, table.pi(domain, body, loc, name), {domain, body}, loc, name)
+{}
+
+Pi::Pi(HENK_TABLE_TYPE& table, const Def* domain, const Def* body, const Location& loc, const std::string& name)
+    : Quantifier(table, Node_Pi, body->type(), {domain, body}, loc, name)
+{}
+
+Tuple::Tuple(HENK_TABLE_TYPE& table, Defs ops, const Location& loc, const std::string& name)
+    : Connective(table, Node_Tuple, nullptr, ops, loc, name)
+{
+    Array<const Def*> types(ops.size());
+    for (size_t i = 0, e = ops.size(); i != e; ++i)
+        types[i] = ops[i]->type();
+    set_type(table.sigma(types, loc, name));
 }
 
 //------------------------------------------------------------------------------
@@ -108,9 +116,9 @@ const Def* StructType::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const {
     return ntype;
 }
 
-const Def* App   ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.app(ops[0], ops[1]); }
-const Def* Tuple ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.tuple(sort(), ops, loc(), name()); }
-const Def* Lambda::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.lambda(sort(), var_type(), ops[0], name()); }
+const Def* App   ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.app(ops[0], ops[1], loc(), name()); }
+const Def* Tuple ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.tuple(ops, loc(), loc(), name()); }
+const Def* Lambda::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.lambda(domain(), body(), loc(), name()); }
 const Def* Var   ::vrebuild(HENK_TABLE_TYPE& to, Defs    ) const { return to.var(depth()); }
 const Def* Error ::vrebuild(HENK_TABLE_TYPE&,    Defs    ) const { return this; }
 
@@ -136,7 +144,7 @@ Array<const Def*> Def::reduce_ops(int depth, const Def* type, Def2Def& map) cons
 }
 
 const Def* Lambda::vreduce(int depth, const Def* type, Def2Def& map) const {
-    return HENK_TABLE_NAME().lambda(sort(), var_type(), body()->reduce(depth+1, type, map), name());
+    return HENK_TABLE_NAME().lambda(domain(), body()->reduce(depth+1, type, map), name());
 }
 
 const Def* Var::vreduce(int depth, const Def* type, Def2Def&) const {
@@ -183,8 +191,22 @@ const StructType* TableBase<T>::struct_type(HENK_STRUCT_EXTRA_TYPE HENK_STRUCT_E
 }
 
 template<class T>
-const Def* TableBase<T>::app(const Def* callee, const Def* op) {
-    auto app = unify(new App(HENK_TABLE_NAME(), callee, op));
+const Def* TableBase<T>::app(const Def* callee, const Def* arg, const Location& loc, const std::string& name = "") {
+    if (auto sigma = arg->type()->isa<Sigma>()) {
+        Array<const Def*> args;
+        for (size_t i = 0, e = sigma->num_ops(); i != e; ++i)
+            args[i] = app(arg, arg, loc, name);
+        return app(callee, args, loc, name);
+    }
+    return app(callee, {arg}, loc, name);
+}
+
+template<class T>
+const Def* TableBase<T>::app(const Def* callee, Defs args, const Location& loc, const std::string& name = "") { 
+    if (args.size() == 1 && args.front()->type()->isa<Sigma>())
+        return app(calee, args.front(), loc, name);
+
+    auto app = unify(new App(HENK_TABLE_NAME(), callee, arg));
 
     if (app->is_hashed()) {
         if (auto cache = app->cache_)

@@ -26,7 +26,7 @@ typedef std::vector<Continuation*> Continuations;
 class Param : public Def {
 private:
     Param(const Def* type, Continuation* continuation, size_t index, const Location& loc, const std::string& name)
-        : Def(type->world(), Node_Param, Sort::Term, type, 0, loc, name)
+        : Def(type->world(), Node_Param, type, 0, loc, name)
         , continuation_(continuation)
         , index_(index)
     {}
@@ -98,7 +98,7 @@ enum class CC : uint8_t {
 class Continuation : public Def {
 private:
     Continuation(const FnType* fn, const Location& loc, CC cc, Intrinsic intrinsic, bool is_sealed, const std::string& name)
-        : Def(fn->world(), Node_Continuation, Sort::Term, fn, 0, loc, name)
+        : Def(fn->world(), Node_Continuation, fn, 0, loc, name)
         , parent_(this)
         , cc_(cc)
         , intrinsic_(intrinsic)

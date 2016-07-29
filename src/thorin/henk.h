@@ -76,20 +76,6 @@ typedef thorin::ArrayRef<const Def*> Defs;
 
 //------------------------------------------------------------------------------
 
-enum class Sort {
-    Term, Type, Kind
-};
-
-inline Sort prev_sort(Sort sort) {
-    assert(sort != Sort::Term);
-    return Sort(int(sort)-1);
-}
-
-inline Sort next_sort(Sort sort) {
-    assert(sort != Sort::Kind);
-    return Sort(int(sort)+1);
-}
-
 /// Base class for all \p Def%s.
 class Def : public thorin::HasLocation, public thorin::Streamable, public thorin::MagicCast<Def> {
 protected:
@@ -97,20 +83,18 @@ protected:
     Def& operator=(const Def&) = delete;
 
     /// Use for nominal @p Def%s.
-    Def(HENK_TABLE_TYPE& table, int tag, Sort sort, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
+    Def(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
         : HENK_TABLE_NAME_(table)
         , tag_(tag)
-        , sort_(sort)
         , ops_(num_ops)
         , gid_(gid_counter_++)
         , nominal_(true)
     {}
 
     /// Use for structural @p Def%s.
-    Def(HENK_TABLE_TYPE& table, int tag, Sort sort, const Def* type, Defs ops, const Location& loc, const std::string& name)
+    Def(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
         : HENK_TABLE_NAME_(table)
         , tag_(tag)
-        , sort_(sort)
         , ops_(ops.size())
         , gid_(gid_counter_++)
         , nominal_(false)
@@ -129,14 +113,13 @@ protected:
     }
 
     void clear_type() { type_ = nullptr; }
-    void set_type(const Def* type) { assert(type->is_nominal()); type_ = type; }
+    void set_type(const Def* type) { type_ = type; }
     void unregister_use(size_t i) const;
     void unregister_uses() const;
     void resize(size_t n) { ops_.resize(n, nullptr); }
 
 public:
     int tag() const { return tag_; }
-    Sort sort() const { return sort_; }
     HENK_TABLE_TYPE& HENK_TABLE_NAME() const { return HENK_TABLE_NAME_; }
 
     Defs ops() const { return ops_; }
@@ -190,7 +173,6 @@ private:
 
     HENK_TABLE_TYPE& HENK_TABLE_NAME_;
     int tag_;
-    Sort sort_;
     const Def* type_;
     std::vector<const Def*> ops_;
     mutable size_t gid_;
@@ -207,25 +189,103 @@ public:
     friend class Tracker;
 };
 
-class Lambda : public Def {
-private:
-    Lambda(HENK_TABLE_TYPE& table, Sort sort, const Def* var_type, const Def* body, const Location& loc, const std::string& name)
-        : Def(table, Node_Lambda, sort, infer_type(table, sort, var_type, body, loc, name), {body}, loc, name)
-        , var_type_(var_type)
+class Abs : public Def {
+protected:
+    Abs(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
+        : Def(table, tag, type, num_ops, loc, name)
     {}
+    Abs(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
+        : Def(table, tag, type, ops, loc, name)
+    {}
+};
 
-    static const Def* infer_type(HENK_TABLE_TYPE& table, Sort sort, const Def* var_type, const Def* body, const Location& loc, const std::string& name);
+class Connective : public Abs {
+protected:
+    Connective(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
+        : Abs(table, tag, type, num_ops, loc, name)
+    {}
+    Connective(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
+        : Abs(table, tag, type, ops, loc, name)
+    {}
+};
+
+class Quantifier : public Abs {
+protected:
+    Quantifier(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
+        : Abs(table, tag, type, num_ops, loc, name)
+    {}
+    Quantifier(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
+        : Abs(table, tag, type, ops, loc, name)
+    {}
+};
+
+class Lambda : public Connective {
+private:
+    Lambda(HENK_TABLE_TYPE& table, const Def* domain, const Def* body, const Location& loc, const std::string& name);
 
 public:
-    const Def* body() const { return op(0); }
-    const Def* var_type() const { return var_type_; }
+    const Def* domain() const { return op(0); }
+    const Def* body() const { return op(1); }
     virtual std::ostream& stream(std::ostream&) const override;
 
 private:
     virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const override;
     virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
 
-    const Def* var_type_;
+    template<class> friend class TableBase;
+};
+
+class Pi : public Quantifier {
+private:
+    Pi(HENK_TABLE_TYPE& table, const Def* domain, const Def* body, const Location& loc, const std::string& name);
+
+public:
+    const Def* domain() const { return op(0); }
+    const Def* body() const { return op(1); }
+    virtual std::ostream& stream(std::ostream&) const override;
+
+private:
+    virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const override;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
+
+    template<class> friend class TableBase;
+};
+
+class Tuple : public Connective {
+private:
+    Tuple(HENK_TABLE_TYPE& table, const Def* type, Defs ops, const Location& loc, const std::string& name)
+        : Connective(table, Node_Tuple, type, ops, loc, name)
+    {}
+
+    Tuple(HENK_TABLE_TYPE& table, Defs ops, const Location& loc, const std::string& name);
+
+    static const Def* infer_type(HENK_TABLE_TYPE& table, Defs ops, const Location& loc, const std::string& name);
+
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
+    virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const override;
+
+public:
+    virtual std::ostream& stream(std::ostream&) const override;
+
+    template<class> friend class TableBase;
+};
+
+class Sigma : public Quantifier {
+private:
+    Sigma(HENK_TABLE_TYPE& table, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
+        : Quantifier(table, Node_Sigma, type, num_ops, loc, name)
+    {}
+    Sigma(HENK_TABLE_TYPE& table, const Def* type, Defs ops, const Location& loc, const std::string& name)
+        : Quantifier(table, Node_Sigma, type, ops, loc, name)
+    {}
+
+    static const Def* infer_type(HENK_TABLE_TYPE& table, Defs ops, const Location& loc, const std::string& name);
+
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
+    virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const override;
+
+public:
+    virtual std::ostream& stream(std::ostream&) const override;
 
     template<class> friend class TableBase;
 };
@@ -233,7 +293,7 @@ private:
 class Star : public Def {
 private:
     Star(HENK_TABLE_TYPE& table)
-        : Def(table, Node_Star, Sort::Kind, nullptr, {}, Location(), "type")
+        : Def(table, Node_Star, nullptr, {}, Location(), "type")
     {}
 
 public:
@@ -248,8 +308,8 @@ private:
 
 class Var : public Def {
 private:
-    Var(HENK_TABLE_TYPE& table, int depth, const Def* type, const Location& loc, const std::string& name)
-        : Def(table, Node_Var, type->sort(), type, {}, loc, name)
+    Var(HENK_TABLE_TYPE& table, const Def* type, int depth, const Location& loc, const std::string& name)
+        : Def(table, Node_Var, type, {}, loc, name)
         , depth_(depth)
     {
         monomorphic_ = false;
@@ -272,14 +332,10 @@ private:
 
 class App : public Def {
 private:
-    App(HENK_TABLE_TYPE& table, const Def* callee, const Def* arg, const Location& loc, const std::string& name)
-        : Def(table, Node_App, infer_sort(callee), infer_type(table, callee, arg, loc, name), {callee, arg}, loc, name)
-    {}
     App(HENK_TABLE_TYPE& table, const Def* callee, Defs args, const Location& loc, const std::string& name)
-        : Def(table, Node_App, infer_sort(callee), infer_type(table, callee, args, loc, name), concat(callee, args), loc, name)
+        : Def(table, Node_App, infer_type(table, callee, args, loc, name), concat(callee, args), loc, name)
     {}
 
-    static Sort infer_sort(const Def* callee);
     static const Def* infer_type(HENK_TABLE_TYPE& table, const Def* callee, const Def* arg, const Location& loc, const std::string& name);
     static const Def* infer_type(HENK_TABLE_TYPE& table, const Def* callee, Defs arg, const Location& loc, const std::string& name);
 
@@ -295,27 +351,10 @@ private:
     template<class> friend class TableBase;
 };
 
-class Tuple : public Def {
-private:
-    Tuple(HENK_TABLE_TYPE& table, Sort sort, Defs ops, const Location& loc, const std::string& name)
-        : Def(table, Node_Tuple, sort, infer_type(table, ops, loc, name), ops, loc, name)
-    {}
-
-    static const Def* infer_type(HENK_TABLE_TYPE& table, Defs ops, const Location& loc, const std::string& name);
-
-    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
-    virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const override;
-
-public:
-    virtual std::ostream& stream(std::ostream&) const override;
-
-    template<class> friend class TableBase;
-};
-
 class Error : public Def {
 private:
     Error(HENK_TABLE_TYPE& table, const Def* type)
-        : Def(table, Node_Error, prev_sort(type->sort()), type, {}, Location(), "<error>")
+        : Def(table, Node_Error, type, {}, Location(), "<error>")
     {}
 
 public:
@@ -437,16 +476,13 @@ public:
     virtual ~TableBase() { for (auto def : defs_) delete def; }
 
     const Star* star();
-    const Var* var(int depth) { return unify(new Var(HENK_TABLE_NAME(), depth)); }
-    const Lambda* lambda(Sort sort, const Def* var_type, const Def* body, const std::string& name = "") { return unify(new Lambda(HENK_TABLE_NAME(), sort, var_type, body, name)); }
-    const Lambda* lambda(const Def* var_type, const Def* body, const std::string& name = "") { return lambda(Sort::Term, var_type, body, name); }
-    const Lambda* pi(const Def* var_type, const Def* body, const std::string& name = "")     { return lambda(Sort::Type, var_type, body, name); }
-    const Def* app(const Def* callee, const Def* arg);
-    const Def* app(const Def* callee, Defs args);
-    const Tuple* tuple(Sort sort, Defs ops, const Location& loc, const std::string& name = "") { return unify(new Tuple(HENK_TABLE_NAME(), sort, ops, loc, name)); }
-    const Tuple* tuple(Defs ops, const Location& loc, const std::string& name = "") { return tuple(Sort::Term, ops, loc, name); }
-    const Tuple* tuple_type(Defs ops, const Location& loc = Location(), const std::string& name = "") { return tuple(Sort::Type, ops, loc, name); }
-    const Tuple* tuple_kind(Defs ops, const Location& loc = Location(), const std::string& name = "") { return tuple(Sort::Kind, ops, loc, name); }
+    const Var* var(const Def* type, int depth) { return unify(new Var(HENK_TABLE_NAME(), type, depth)); }
+    const Lambda* lambda(const Def* domain, const Def* body, const Location& loc, const std::string& name = "") { return unify(new Lambda(HENK_TABLE_NAME(), domain, body, loc, name)); }
+    const Lambda* pi    (const Def* domain, const Def* body, const Location& loc, const std::string& name = "") { return unify(new Pi    (HENK_TABLE_NAME(), domain, body, loc, name)); }
+    const Def* app(const Def* callee, const Def* arg, const Location& loc, const std::string& name = "");
+    const Def* app(const Def* callee, Defs args, const Location& loc, const std::string& name = "");
+    const Tuple* tuple(Defs ops, const Location& loc, const std::string& name = "") { return unify(new Tuple(HENK_TABLE_NAME(), ops, loc, name)); }
+    const Sigma* sigma(Defs ops, const Location& loc, const std::string& name = "") { return tuple(ops, loc, name); }
     const Error* error(const Def* type) { return unify(new Error(HENK_TABLE_NAME(), type)); }
     const Error* error() { return error(error(star())); }
 

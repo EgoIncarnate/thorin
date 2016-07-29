@@ -4,6 +4,15 @@
 
 // Def
     THORIN_NODE(Continuation, continuation)
+    THORIN_NODE(Param, param)
+
+    THORIN_NODE(Star, type)
+    THORIN_NODE(Var, var)
+    THORIN_NODE(App, app)
+    THORIN_NODE(Lambda, lambda)
+    THORIN_NODE(Pi, pi)
+    THORIN_NODE(Tuple, tuple)
+    THORIN_NODE(Sigma, sigma)
     // PrimOp
         // Literal
             THORIN_NODE(Bottom, bottom)
@@ -26,8 +35,6 @@
             THORIN_NODE(Bitcast, bitcast)
         THORIN_NODE(DefiniteArray, definite_array)
         THORIN_NODE(IndefiniteArray, indefinite_array)
-        THORIN_NODE(Tuple, tuple)
-        THORIN_NODE(StructAgg, struct_agg)
         THORIN_NODE(Vector, vector)
         THORIN_NODE(Extract, extract)
         THORIN_NODE(Insert, insert)
@@ -36,20 +43,13 @@
         THORIN_NODE(Hlt, hlt)
         THORIN_NODE(EndRun, end_run)
         THORIN_NODE(EndHlt, end_hlt)
-    THORIN_NODE(Param, param)
     // Type
-        // PrimType
-        THORIN_NODE(App, app)
         THORIN_NODE(DefiniteArrayType, definite_array_type)
         THORIN_NODE(FnType, fn)
         THORIN_NODE(FrameType, frame)
         THORIN_NODE(IndefiniteArrayType, indefinite_array_type)
-        THORIN_NODE(Lambda, lambda)
-        THORIN_NODE(Star, type)
         THORIN_NODE(MemType, mem)
         THORIN_NODE(PtrType, ptr)
-        THORIN_NODE(StructType, struct_type)
         THORIN_NODE(Error, error)
-        THORIN_NODE(Var, var)
 
 #undef THORIN_NODE
