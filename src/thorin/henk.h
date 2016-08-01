@@ -63,20 +63,20 @@ struct GIDHash {
 };
 
 template<class Key, class Value>
-using GIDMap    = thorin::HashMap<const Key*, Value, GIDHash<const Key*>>;
+using GIDMap = thorin::HashMap<const Key*, Value, GIDHash<const Key*>>;
 template<class Key>
-using GIDSet    = thorin::HashSet<const Key*, GIDHash<const Key*>>;
+using GIDSet = thorin::HashSet<const Key*, GIDHash<const Key*>>;
 
 template<class To>
-using DefMap      = GIDMap<Def, To>;
-using DefSet      = GIDSet<Def>;
-using Def2Def    = DefMap<const Def*>;
+using DefMap  = GIDMap<Def, To>;
+using DefSet  = GIDSet<Def>;
+using Def2Def = DefMap<const Def*>;
 
 typedef thorin::ArrayRef<const Def*> Defs;
 
 //------------------------------------------------------------------------------
 
-/// Base class for all \p Def%s.
+/// Base class for all @p Def%s.
 class Def : public thorin::HasLocation, public thorin::Streamable, public thorin::MagicCast<Def> {
 protected:
     Def(const Def&) = delete;
