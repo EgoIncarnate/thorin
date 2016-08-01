@@ -139,7 +139,7 @@ public:
 /// Get number of bytes needod for @p type.
 class SizeOf : public PrimOp {
 private:
-    SizeOf(const Type* type, const Location& loc, const std::string& name);
+    SizeOf(const Def* type, const Location& loc, const std::string& name);
 
 public:
     const Def* of() const { return of_; }

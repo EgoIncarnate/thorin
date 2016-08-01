@@ -119,6 +119,21 @@ protected:
     void resize(size_t n) { ops_.resize(n, nullptr); }
 
 public:
+    enum Sort {
+        Term, Type, Kind
+    };
+
+    Sort sort() const {
+        if (!type())
+            return Kind;
+        else if (!type()->type())
+            return Type;
+        else {
+            assert(!type()->type()->type());
+            return Term;
+        }
+    }
+
     int tag() const { return tag_; }
     HENK_TABLE_TYPE& HENK_TABLE_NAME() const { return HENK_TABLE_NAME_; }
 
@@ -131,7 +146,6 @@ public:
     const Def* type() const { return type_; }
     const std::string& name() const { return name_; }
     std::string unique_name() const;
-
     void set_op(size_t i, const Def* def);
     void unset_op(size_t i);
     void unset_ops();
