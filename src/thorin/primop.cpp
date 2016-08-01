@@ -66,6 +66,11 @@ LEA::LEA(const Def* ptr, const Def* index, const Location& loc, const std::strin
     }
 }
 
+SizeOf::SizeOf(const Def* of, const Location& loc, const std::string& name)
+    : PrimOp(Node_SizeOf, of->world().type_qs32(), {}, loc, name)
+    , of_(of)
+{}
+
 Slot::Slot(const Def* type, const Def* frame, const Location& loc, const std::string& name)
     : PrimOp(Node_Slot, type->world().ptr_type(type), {frame}, loc, name)
 {
@@ -107,6 +112,7 @@ Enter::Enter(const Def* mem, const Location& loc, const std::string& name)
  */
 
 uint64_t PrimLit::vhash() const { return hash_combine(Literal::vhash(), bcast<uint64_t, Box>(value())); }
+uint64_t SizeOf::vhash() const { return hash_combine(PrimOp::vhash(), of()); }
 uint64_t Slot::vhash() const { return hash_combine((int) tag(), gid()); }
 
 //------------------------------------------------------------------------------
@@ -119,7 +125,11 @@ bool PrimLit::equal(const Def* other) const {
     return Literal::equal(other) ? this->value() == other->as<PrimLit>()->value() : false;
 }
 
-bool Slot::equal(const Def* other) const { return this == other; }
+bool SizeOf::equal(const PrimOp* other) const {
+    return PrimOp::equal(other) ? this->of() == other->as<SizeOf>()->of() : false;
+}
+
+bool Slot::equal(const PrimOp* other) const { return this == other; }
 
 //------------------------------------------------------------------------------
 
@@ -129,27 +139,29 @@ bool Slot::equal(const Def* other) const { return this == other; }
 
 // do not use any of PrimOp's type getters - during import we need to derive types from 't' in the new world 'to'
 
-const Def* ArithOp::vrebuild(World& to, Defs ops, const Def*  ) const { return to.arithop(arithop_tag(), ops[0], ops[1], loc(), name()); }
-const Def* Bitcast::vrebuild(World& to, Defs ops, const Def* t) const { return to.bitcast(t, ops[0], loc(), name()); }
+const Def* ArithOp::vrebuild(World& to, Defs ops, const Def*  ) const { return to.arithop(arithop_tag(), ops[0], ops[1], loc(), name); }
+const Def* Bitcast::vrebuild(World& to, Defs ops, const Def* t) const { return to.bitcast(t, ops[0], loc(), name); }
 const Def* Bottom ::vrebuild(World& to, Defs,     const Def* t) const { return to.bottom(t, loc()); }
-const Def* Cast   ::vrebuild(World& to, Defs ops, const Def* t) const { return to.cast(t, ops[0], loc(), name()); }
-const Def* Cmp    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.cmp(cmp_tag(), ops[0], ops[1], loc(), name()); }
-const Def* Enter  ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.enter(ops[0], loc(), name()); }
-const Def* Extract::vrebuild(World& to, Defs ops, const Def*  ) const { return to.extract(ops[0], ops[1], loc(), name()); }
-const Def* Global ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.global(ops[0], loc(), is_mutable(), name()); }
-const Def* Hlt    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.hlt(ops[0], ops[1], loc(), name()); }
-const Def* Insert ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.insert(ops[0], ops[1], ops[2], loc(), name()); }
-const Def* LEA    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.lea(ops[0], ops[1], loc(), name()); }
-const Def* Load   ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.load(ops[0], ops[1], loc(), name()); }
+const Def* Cast   ::vrebuild(World& to, Defs ops, const Def* t) const { return to.cast(t, ops[0], loc(), name); }
+const Def* Cmp    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.cmp(cmp_tag(), ops[0], ops[1], loc(), name); }
+const Def* Enter  ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.enter(ops[0], loc(), name); }
+const Def* Extract::vrebuild(World& to, Defs ops, const Def*  ) const { return to.extract(ops[0], ops[1], loc(), name); }
+const Def* Global ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.global(ops[0], loc(), is_mutable(), name); }
+const Def* Hlt    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.hlt(ops[0], ops[1], loc(), name); }
+const Def* Insert ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.insert(ops[0], ops[1], ops[2], loc(), name); }
+const Def* LEA    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.lea(ops[0], ops[1], loc(), name); }
+const Def* Load   ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.load(ops[0], ops[1], loc(), name); }
 const Def* PrimLit::vrebuild(World& to, Defs,     const Def*  ) const { return to.literal(primtype_tag(), value(), loc()); }
-const Def* Run    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.run(ops[0], ops[1], loc(), name()); }
-const Def* Select ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.select(ops[0], ops[1], ops[2], loc(), name()); }
-const Def* Slot   ::vrebuild(World& to, Defs ops, const Def* t) const { return to.slot(t->as<PtrType>()->referenced_type(), ops[0], loc(), name()); }
-const Def* Store  ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.store(ops[0], ops[1], ops[2], loc(), name()); }
-const Def* Vector ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.vector(ops, loc(), name()); }
+const Def* Run    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.run(ops[0], ops[1], loc(), name); }
+const Def* Select ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.select(ops[0], ops[1], ops[2], loc(), name); }
+const Def* SizeOf ::vrebuild(World& to, Defs,     const Def*  ) const { return to.size_of(of(), loc(), name); }
+const Def* Slot   ::vrebuild(World& to, Defs ops, const Def* t) const { return to.slot(t->as<PtrType>()->referenced_type(), ops[0], loc(), name); }
+const Def* Store  ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.store(ops[0], ops[1], ops[2], loc(), name); }
+const Def* Tuple  ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.tuple(ops, loc(), name); }
+const Def* Vector ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.vector(ops, loc(), name); }
 
 const Def* Alloc::vrebuild(World& to, Defs ops, const Def* t) const {
-    return to.alloc(t->as<Tuple>()->op(1)->as<PtrType>()->referenced_type(), ops[0], ops[1], loc(), name());
+    return to.alloc(t->as<TupleType>()->op(1)->as<PtrType>()->referenced_type(), ops[0], ops[1], loc(), name);
 }
 
 

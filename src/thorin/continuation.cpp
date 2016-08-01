@@ -204,10 +204,6 @@ void Continuation::set_intrinsic() {
     else if (name() == "vectorize")      intrinsic_ = Intrinsic::Vectorize;
     else if (name() == "reserve_shared") intrinsic_ = Intrinsic::Reserve;
     else if (name() == "atomic")         intrinsic_ = Intrinsic::Atomic;
-    else if (name() == "bitcast")        intrinsic_ = Intrinsic::Bitcast;
-    else if (name() == "select")         intrinsic_ = Intrinsic::Select;
-    else if (name() == "sizeof")         intrinsic_ = Intrinsic::Sizeof;
-    else if (name() == "shuffle")        intrinsic_ = Intrinsic::Shuffle;
     else assert(false && "unsupported thorin intrinsic");
 }
 
@@ -251,18 +247,6 @@ void Continuation::jump(const Def* to, Defs args, const Location& loc) {
     jump_loc_ = loc;
     if (auto continuation = to->isa<Continuation>()) {
         switch (continuation->intrinsic()) {
-            case Intrinsic::Bitcast: {
-                //assert(type_args.size() == 2);
-                //auto dst = type_args[0], src = type_args[1];
-
-                //if (dst->is_monomorphic()) {
-                    //assert(args.size() == 3);
-                    //auto mem = args[0], def = args[1], k = args[2];
-                    //assert_unused(def->type() == src);
-                    //return jump(k, {}, { mem, world().bitcast(dst, def, loc) }, loc);
-                //}
-                //break;
-            }
             case Intrinsic::Branch: {
                 assert(args.size() == 3);
                 auto cond = args[0], t = args[1], f = args[2];
@@ -273,17 +257,6 @@ void Continuation::jump(const Def* to, Defs args, const Location& loc) {
                 if (is_not(cond))
                     return branch(cond->as<ArithOp>()->rhs(), f, t, loc);
                 break;
-            }
-            case Intrinsic::Select: {
-                //assert(type_args.size() == 2);
-                //const Type* type = type_args[1];
-
-                //if (type->is_monomorphic()) {
-                    //assert(args.size() == 5);
-                    //auto mem = args[0], cond = args[1], t = args[2], f = args[3], k = args[4];
-                    //return jump(k, {}, { mem, world().select(cond, t, f, loc) }, loc);
-                //}
-                //break;
             }
             default:
                 break;
@@ -372,27 +345,36 @@ const Def* Continuation::set_value(size_t handle, const Def* def) {
 }
 
 const Def* Continuation::get_value(size_t handle, const Def* type, const char* name) {
-    if (auto def = find_def(handle))
-        return def;
+    auto result = find_def(handle);
+    if (result)
+        goto return_result;
 
     if (parent() != this) { // is a function head?
-        if (parent())
-            return parent()->get_value(handle, type, name);
+        if (parent()) {
+            result = parent()->get_value(handle, type, name);
+            goto return_result;
+        }
         goto return_bottom;
     } else {
         if (!is_sealed_) {
             auto param = append_param(type, name);
             todos_.emplace_back(handle, param->index(), type, name);
-            return set_value(handle, param);
+            result = set_value(handle, param);
+            goto return_result;
         }
 
         Continuations preds = this->preds();
         switch (preds.size()) {
-            case 0: goto return_bottom;
-            case 1: return set_value(handle, preds.front()->get_value(handle, type, name));
+            case 0: 
+                goto return_bottom;
+            case 1: 
+                result = set_value(handle, preds.front()->get_value(handle, type, name));
+                goto return_result;
             default: {
-                if (is_visited_)
-                    return set_value(handle, append_param(type, name)); // create param to break cycle
+                if (is_visited_) {
+                    result = set_value(handle, append_param(type, name)); // create param to break cycle
+                    goto return_result;
+                }
 
                 is_visited_ = true;
                 const Def* same = nullptr;
@@ -412,16 +394,21 @@ const Def* Continuation::get_value(size_t handle, const Def* type, const char* n
                 if (auto found = find_def(handle))
                     def = fix(handle, found->as<Param>()->index(), type, name);
 
-                if (same != (const Def*)-1)
-                    return same;
+                if (same != (const Def*)-1) {
+                    result = same;
+                    goto return_result;
+                }
 
-                if (def)
-                    return set_value(handle, def);
+                if (def) {
+                    result = set_value(handle, def);
+                    goto return_result;
+                }
 
                 auto param = append_param(type, name);
                 set_value(handle, param);
                 fix(handle, param->index(), type, name);
-                return param;
+                result = param;
+                goto return_result;
             }
         }
     }
@@ -429,6 +416,10 @@ const Def* Continuation::get_value(size_t handle, const Def* type, const char* n
 return_bottom:
     WLOG("'%' may be undefined at '%'", name, this->loc());
     return set_value(handle, world().bottom(type, Location()));
+
+return_result:
+    assert(result->type() == type);
+    return result;
 }
 
 void Continuation::seal() {

@@ -115,7 +115,6 @@ T primlit_value(const Def* def) {
 template<class T>
 T get(ArrayRef<T> array, const Def* def) { return array[primlit_value<size_t>(def)]; }
 
-
 /// Akin to <tt>cond ? tval : fval</tt>.
 class Select : public PrimOp {
 private:
@@ -133,6 +132,24 @@ public:
     const Def* cond() const { return op(0); }
     const Def* tval() const { return op(1); }
     const Def* fval() const { return op(2); }
+
+    friend class World;
+};
+
+/// Get number of bytes needod for @p type.
+class SizeOf : public PrimOp {
+private:
+    SizeOf(const Type* type, const Location& loc, const std::string& name);
+
+public:
+    const Def* of() const { return of_; }
+
+private:
+    virtual uint64_t vhash() const override;
+    virtual bool equal(const Def* other) const override;
+    virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const override;
+
+    const Def* of_;
 
     friend class World;
 };
