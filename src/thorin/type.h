@@ -7,21 +7,6 @@ namespace thorin {
 
 //------------------------------------------------------------------------------
 
-class StructType : public Def {
-private:
-    StructType(World& world, size_t num_ops, const Location& loc, const std::string& name);
-
-public:
-    void set(size_t i, const Def* type) const { return const_cast<StructType*>(this)->Def::set(i, type); }
-
-private:
-    virtual const Def* vrebuild(World& to, Defs ops) const override;
-    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
-    virtual std::ostream& stream(std::ostream&) const override;
-
-    friend class World;
-};
-
 class Type : public Def {
 protected:
     Type(World& world, int tag, Defs ops);

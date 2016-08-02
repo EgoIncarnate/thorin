@@ -59,8 +59,8 @@ LEA::LEA(const Def* ptr, const Def* index, const Location& loc, const std::strin
         set_type(world.ptr_type(get(tuple->ops(), index), type->length(), type->device(), type->addr_space()));
     } else if (auto array = ptr_referenced_type()->isa<ArrayType>()) {
         set_type(world.ptr_type(array->elem_type(), type->length(), type->device(), type->addr_space()));
-    } else if (auto struct_type = ptr_referenced_type()->isa<StructType>()) {
-        set_type(world.ptr_type(get(struct_type->ops(), index)));
+    } else if (auto sigma = ptr_referenced_type()->isa<Sigma>()) {
+        set_type(world.ptr_type(get(sigma->ops(), index)));
     } else {
         THORIN_UNREACHABLE;
     }
@@ -88,21 +88,21 @@ Alloc::Alloc(const Def* type, const Def* mem, const Def* extra, const Location& 
     : MemOp(Node_Alloc, nullptr, {mem, extra}, loc, name)
 {
     World& w = mem->world();
-    set_type(w.tuple_type({w.mem_type(), w.ptr_type(type)}));
+    set_type(w.sigma({w.mem_type(), w.ptr_type(type)}, loc, name));
 }
 
 Load::Load(const Def* mem, const Def* ptr, const Location& loc, const std::string& name)
     : Access(Node_Load, nullptr, {mem, ptr}, loc, name)
 {
     World& w = mem->world();
-    set_type(w.tuple_type({w.mem_type(), ptr->type()->as<PtrType>()->referenced_type()}));
+    set_type(w.sigma({w.mem_type(), ptr->type()->as<PtrType>()->referenced_type()}, loc, name));
 }
 
 Enter::Enter(const Def* mem, const Location& loc, const std::string& name)
     : MemOp(Node_Enter, nullptr, {mem}, loc, name)
 {
     World& w = mem->world();
-    set_type(w.tuple_type({w.mem_type(), w.frame_type()}));
+    set_type(w.sigma({w.mem_type(), w.frame_type()}, loc, name));
 }
 
 //------------------------------------------------------------------------------
@@ -125,11 +125,11 @@ bool PrimLit::equal(const Def* other) const {
     return Literal::equal(other) ? this->value() == other->as<PrimLit>()->value() : false;
 }
 
-bool SizeOf::equal(const PrimOp* other) const {
+bool SizeOf::equal(const Def* other) const {
     return PrimOp::equal(other) ? this->of() == other->as<SizeOf>()->of() : false;
 }
 
-bool Slot::equal(const PrimOp* other) const { return this == other; }
+bool Slot::equal(const Def* other) const { return this == other; }
 
 //------------------------------------------------------------------------------
 
@@ -139,38 +139,33 @@ bool Slot::equal(const PrimOp* other) const { return this == other; }
 
 // do not use any of PrimOp's type getters - during import we need to derive types from 't' in the new world 'to'
 
-const Def* ArithOp::vrebuild(World& to, Defs ops, const Def*  ) const { return to.arithop(arithop_tag(), ops[0], ops[1], loc(), name); }
-const Def* Bitcast::vrebuild(World& to, Defs ops, const Def* t) const { return to.bitcast(t, ops[0], loc(), name); }
+const Def* ArithOp::vrebuild(World& to, Defs ops, const Def*  ) const { return to.arithop(arithop_tag(), ops[0], ops[1], loc(), name()); }
+const Def* Bitcast::vrebuild(World& to, Defs ops, const Def* t) const { return to.bitcast(t, ops[0], loc(), name()); }
 const Def* Bottom ::vrebuild(World& to, Defs,     const Def* t) const { return to.bottom(t, loc()); }
-const Def* Cast   ::vrebuild(World& to, Defs ops, const Def* t) const { return to.cast(t, ops[0], loc(), name); }
-const Def* Cmp    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.cmp(cmp_tag(), ops[0], ops[1], loc(), name); }
-const Def* Enter  ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.enter(ops[0], loc(), name); }
-const Def* Extract::vrebuild(World& to, Defs ops, const Def*  ) const { return to.extract(ops[0], ops[1], loc(), name); }
-const Def* Global ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.global(ops[0], loc(), is_mutable(), name); }
-const Def* Hlt    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.hlt(ops[0], ops[1], loc(), name); }
-const Def* Insert ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.insert(ops[0], ops[1], ops[2], loc(), name); }
-const Def* LEA    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.lea(ops[0], ops[1], loc(), name); }
-const Def* Load   ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.load(ops[0], ops[1], loc(), name); }
+const Def* Cast   ::vrebuild(World& to, Defs ops, const Def* t) const { return to.cast(t, ops[0], loc(), name()); }
+const Def* Cmp    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.cmp(cmp_tag(), ops[0], ops[1], loc(), name()); }
+const Def* Enter  ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.enter(ops[0], loc(), name()); }
+const Def* Extract::vrebuild(World& to, Defs ops, const Def*  ) const { return to.extract(ops[0], ops[1], loc(), name()); }
+const Def* Global ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.global(ops[0], loc(), is_mutable(), name()); }
+const Def* Hlt    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.hlt(ops[0], ops[1], loc(), name()); }
+const Def* Insert ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.insert(ops[0], ops[1], ops[2], loc(), name()); }
+const Def* LEA    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.lea(ops[0], ops[1], loc(), name()); }
+const Def* Load   ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.load(ops[0], ops[1], loc(), name()); }
 const Def* PrimLit::vrebuild(World& to, Defs,     const Def*  ) const { return to.literal(primtype_tag(), value(), loc()); }
-const Def* Run    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.run(ops[0], ops[1], loc(), name); }
-const Def* Select ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.select(ops[0], ops[1], ops[2], loc(), name); }
-const Def* SizeOf ::vrebuild(World& to, Defs,     const Def*  ) const { return to.size_of(of(), loc(), name); }
-const Def* Slot   ::vrebuild(World& to, Defs ops, const Def* t) const { return to.slot(t->as<PtrType>()->referenced_type(), ops[0], loc(), name); }
-const Def* Store  ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.store(ops[0], ops[1], ops[2], loc(), name); }
-const Def* Tuple  ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.tuple(ops, loc(), name); }
-const Def* Vector ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.vector(ops, loc(), name); }
+const Def* Run    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.run(ops[0], ops[1], loc(), name()); }
+const Def* Select ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.select(ops[0], ops[1], ops[2], loc(), name()); }
+const Def* SizeOf ::vrebuild(World& to, Defs,     const Def*  ) const { return to.size_of(of(), loc(), name()); }
+const Def* Slot   ::vrebuild(World& to, Defs ops, const Def* t) const { return to.slot(t->as<PtrType>()->referenced_type(), ops[0], loc(), name()); }
+const Def* Store  ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.store(ops[0], ops[1], ops[2], loc(), name()); }
+const Def* Vector ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.vector(ops, loc(), name()); }
 
 const Def* Alloc::vrebuild(World& to, Defs ops, const Def* t) const {
-    return to.alloc(t->as<TupleType>()->op(1)->as<PtrType>()->referenced_type(), ops[0], ops[1], loc(), name);
+    return to.alloc(t->as<Sigma>()->op(1)->as<PtrType>()->referenced_type(), ops[0], ops[1], loc(), name());
 }
 
 
 const Def* DefiniteArray::vrebuild(World& to, Defs ops, const Def* t) const {
     return to.definite_array(t->as<DefiniteArrayType>()->elem_type(), ops, loc(), name());
-}
-
-const Def* StructAgg::vrebuild(World& to, Defs ops, const Def* t) const {
-    return to.struct_agg(t->as<StructType>(), ops, loc(), name());
 }
 
 const Def* IndefiniteArray::vrebuild(World& to, Defs ops, const Def* t) const {
@@ -286,8 +281,8 @@ const Def* Extract::extracted_type(const Def* agg, const Def* index) {
         return array->elem_type();
     else if (auto vector = agg->type()->isa<VectorType>())
         return vector->scalarize();
-    else if (auto struct_type = agg->type()->isa<StructType>())
-        return get(struct_type->ops(), index);
+    else if (auto sigma = agg->type()->isa<Sigma>())
+        return get(sigma->ops(), index);
 
     THORIN_UNREACHABLE;
 }

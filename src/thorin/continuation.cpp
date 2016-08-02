@@ -64,8 +64,8 @@ const Param* Continuation::mem_param() const {
 }
 
 Continuation* Continuation::update_op(size_t i, const Def* def) {
-    unset_op(i);
-    set_op(i, def);
+    unset(i);
+    set(i, def);
     return this;
 }
 
@@ -82,7 +82,8 @@ void Continuation::refresh(Def2Def& old2new) {
 }
 
 void Continuation::destroy_body() {
-    unset_ops();
+    for (size_t i = 0, e = num_ops(); i != e; ++i)
+        unset(i);
     resize(0);
 }
 
@@ -263,13 +264,13 @@ void Continuation::jump(const Def* to, Defs args, const Location& loc) {
         }
     }
 
-    unset_ops();
+    destroy_body();
     resize(args.size()+1);
-    set_op(0, to);
+    set(0, to);
 
     size_t x = 1;
     for (auto arg : args)
-        set_op(x++, arg);
+        set(x++, arg);
 }
 
 void Continuation::branch(const Def* cond, const Def* t, const Def* f, const Location& loc) {
@@ -447,7 +448,7 @@ const Def* Continuation::fix(size_t handle, size_t index, const Def* type, const
             pred->resize(index+2);
 
         assert(!pred->arg(index) && "already set");
-        pred->set_op(index + 1, def);
+        pred->set(index + 1, def);
     }
 
     return try_remove_trivial_param(param);

@@ -105,13 +105,7 @@ protected:
         }
     }
 
-    void set(size_t i, const Def* def) {
-        ops_[i] = def;
-        order_  = std::max(order_, def->order());
-        monomorphic_ &= def->is_monomorphic();
-        known_       &= def->is_known();
-    }
-
+    void set(size_t i, const Def*);
     void clear_type() { type_ = nullptr; }
     void set_type(const Def* type) { type_ = type; }
     void unregister_use(size_t i) const;
@@ -146,21 +140,18 @@ public:
     const Def* type() const { return type_; }
     const std::string& name() const { return name_; }
     std::string unique_name() const;
-    void set_op(size_t i, const Def* def);
-    void unset_op(size_t i);
-    void unset_ops();
+    void unset(size_t i);
     Continuation* as_continuation() const;
     Continuation* isa_continuation() const;
     void replace(const Def*) const;
 
     bool is_nominal() const { return nominal_; }              ///< A nominal @p Def is always different from each other @p Def.
-    bool is_hashed()  const { return hashed_; }               ///< This @p Def is already recorded inside of @p HENK_TABLE_TYPE.
     bool is_known()   const { return known_; }                ///< Deos this @p Def depend on any @p Unknown%s?
     bool is_monomorphic() const { return monomorphic_; }      ///< Does this @p Def not depend on any @p Var%s?.
     bool is_polymorphic() const { return !is_monomorphic(); } ///< Does this @p Def depend on any @p Var%s?.
     int order() const { return order_; }
     size_t gid() const { return gid_; }
-    uint64_t hash() const { return is_hashed() ? hash_ : hash_ = vhash(); }
+    uint64_t hash() const { return hash_ == 0 ? hash_ = vhash() : hash_; }
     virtual bool equal(const Def*) const;
     virtual bool is_outdated() const { return false; }
     virtual const Def* rebuild(Def2Def&) const { return this; }
@@ -178,7 +169,6 @@ protected:
 
     mutable uint64_t hash_ = 0;
     int order_ = 0;
-    mutable bool hashed_      = false;
     mutable bool known_       = true;
     mutable bool monomorphic_ = true;
 
@@ -202,6 +192,10 @@ public:
     friend class Scope;
     friend class Tracker;
 };
+
+uint64_t UseHash::operator()(Use use) const {
+    return hash_combine(hash_begin(use->gid()), use.index());
+}
 
 class Abs : public Def {
 protected:
@@ -286,11 +280,11 @@ public:
 
 class Sigma : public Quantifier {
 private:
-    Sigma(HENK_TABLE_TYPE& table, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
-        : Quantifier(table, Node_Sigma, type, num_ops, loc, name)
+    Sigma(HENK_TABLE_TYPE& table, size_t num_ops, const Location& loc, const std::string& name)
+        : Quantifier(table, Node_Sigma, nullptr /*TODO*/, num_ops, loc, name)
     {}
-    Sigma(HENK_TABLE_TYPE& table, const Def* type, Defs ops, const Location& loc, const std::string& name)
-        : Quantifier(table, Node_Sigma, type, ops, loc, name)
+    Sigma(HENK_TABLE_TYPE& table, Defs ops, const Location& loc, const std::string& name)
+        : Quantifier(table, Node_Sigma, nullptr /*TODO*/, ops, loc, name)
     {}
 
     static const Def* infer_type(HENK_TABLE_TYPE& table, Defs ops, const Location& loc, const std::string& name);
@@ -490,13 +484,20 @@ public:
     virtual ~TableBase() { for (auto def : defs_) delete def; }
 
     const Star* star();
-    const Var* var(const Def* type, int depth) { return unify(new Var(HENK_TABLE_NAME(), type, depth)); }
+    const Var* var(const Def* type, int depth, const Location& loc, const std::string& name = "") { return unify(new Var(HENK_TABLE_NAME(), type, depth, loc, name)); }
     const Lambda* lambda(const Def* domain, const Def* body, const Location& loc, const std::string& name = "") { return unify(new Lambda(HENK_TABLE_NAME(), domain, body, loc, name)); }
-    const Lambda* pi    (const Def* domain, const Def* body, const Location& loc, const std::string& name = "") { return unify(new Pi    (HENK_TABLE_NAME(), domain, body, loc, name)); }
+    const Pi*     pi    (const Def* domain, const Def* body, const Location& loc, const std::string& name = "") { return unify(new Pi    (HENK_TABLE_NAME(), domain, body, loc, name)); }
     const Def* app(const Def* callee, const Def* arg, const Location& loc, const std::string& name = "");
     const Def* app(const Def* callee, Defs args, const Location& loc, const std::string& name = "");
-    const Tuple* tuple(Defs ops, const Location& loc, const std::string& name = "") { return unify(new Tuple(HENK_TABLE_NAME(), ops, loc, name)); }
-    const Sigma* sigma(Defs ops, const Location& loc, const std::string& name = "") { return tuple(ops, loc, name); }
+    const Tuple* tuple(const Def* type, Defs ops, const Location& loc, const std::string& name = "") { return unify(new Tuple(HENK_TABLE_NAME(), type, ops, loc, name)); }
+    const Tuple* tuple(Defs ops, const Location& loc, const std::string& name = "") { 
+        Array<const Def*> types(ops.size());
+        for (size_t i = 0, e = types.size(); i != e; ++i)
+            types[i] = ops[i]->type();
+        return tuple(sigma(types, loc, name), ops, loc, name);
+    }
+    const Sigma* sigma(Defs ops, const Location& loc, const std::string& name = "") { return unify(new Sigma(HENK_TABLE_NAME(), ops, loc, name)); }
+    Sigma* sigma(size_t num_ops, const Location& loc, const std::string& name = "") { return insert(new Sigma(HENK_TABLE_NAME(), num_ops, loc, name)); }
     const Error* error(const Def* type) { return unify(new Error(HENK_TABLE_NAME(), type)); }
     const Error* error() { return error(error(star())); }
 
@@ -504,12 +505,17 @@ public:
 
 protected:
     const Def* unify_base(const Def* type);
-    template<class T> const T* unify(const T* type) { return unify_base(type)->template as<T>(); }
-    const Def* insert(const Def*);
-    void destroy(const Def*);
-    void destroy(const Def*, thorin::HashSet<const Def*>& done);
+    template<class T> 
+    const T* unify(const T* type) { return unify_base(type)->template as<T>(); }
 
-    Defs defs_;
+    template<class T>
+    T* insert(T* def) {
+        auto p = defs_.emplace(def);
+        assert_unused(p.second);
+        return def;
+    }
+
+    DefSet defs_;
 
     friend class Lambda;
 };

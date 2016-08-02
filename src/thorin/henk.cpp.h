@@ -20,6 +20,37 @@ size_t Def::gid_counter_ = 1;
 
 const Def* Def::op(size_t i) const { return i < num_ops() ? ops()[i] : HENK_TABLE_NAME().error(); }
 
+void Def::set(size_t i, const Def* def) {
+    assert(!op(i) && "already set");
+    assert(def && "setting null pointer");
+    ops_[i] = def;
+    assert(!def->uses_.contains(Use(i, this)));
+    const auto& p = def->uses_.emplace(i, this);
+    assert_unused(p.second);
+
+    order_        = std::max(order_, def->order());
+    monomorphic_ &= def->is_monomorphic();
+    known_       &= def->is_known();
+}
+
+void Def::unregister_uses() const {
+    for (size_t i = 0, e = num_ops(); i != e; ++i)
+        unregister_use(i);
+}
+
+void Def::unregister_use(size_t i) const {
+    auto def = ops_[i];
+    assert(def->uses_.contains(Use(i, this)));
+    def->uses_.erase(Use(i, this));
+    assert(!def->uses_.contains(Use(i, this)));
+}
+
+void Def::unset(size_t i) {
+    assert(ops_[i] && "must be set");
+    unregister_use(i);
+    ops_[i] = nullptr;
+}
+
 std::string Def::unique_name() const {
     std::ostringstream oss;
     oss << name() << '_' << gid();
@@ -79,14 +110,11 @@ bool Def::equal(const Def* other) const {
     if (is_nominal())
         return this == other;
 
-    bool result = this->tag() == other->tag() && this->num_ops() == other->num_ops()
-        && this->is_monomorphic() == other->is_monomorphic();
+    bool result = this->tag() == other->tag() && this->num_ops() == other->num_ops();
 
     if (result) {
-        for (size_t i = 0, e = num_ops(); result && i != e; ++i) {
-            assert(this->op(i)->is_hashed() && other->op(i)->is_hashed());
+        for (size_t i = 0, e = num_ops(); result && i != e; ++i)
             result &= this->op(i) == other->op(i);
-        }
     }
 
     return result;
@@ -109,17 +137,20 @@ const Def* Def::rebuild(HENK_TABLE_TYPE& to, Defs ops) const {
     return vrebuild(to, ops);
 }
 
-const Def* StructType::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const {
-    auto ntype = to.struct_type(ops.size(), HENK_STRUCT_EXTRA_NAME());
-    for (size_t i = 0, e = ops.size(); i != e; ++i)
-        const_cast<StructType*>(ntype)->set(i, ops[i]);
-    return ntype;
+const Def* Sigma::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const {
+    if (is_nominal()) {
+        auto sigma = to.sigma(ops.size(), loc(), name());
+        for (size_t i = 0, e = ops.size(); i != e; ++i)
+            sigma->set(i, ops[i]);
+        return sigma;
+    } else
+        return to.sigma(ops, loc(), name());
 }
 
 const Def* App   ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.app(ops[0], ops[1], loc(), name()); }
 const Def* Tuple ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.tuple(ops, loc(), name()); }
 const Def* Lambda::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.lambda(ops[0], ops[1], loc(), name()); }
-const Def* Var   ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.var(ops[1], depth()); }
+const Def* Var   ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.var(ops[0], depth(), loc(), name()); }
 const Def* Error ::vrebuild(HENK_TABLE_TYPE& to, Defs ops) const { return to.error(ops[1]); }
 
 //------------------------------------------------------------------------------
@@ -147,51 +178,62 @@ const Def* Lambda::vreduce(int depth, const Def* def, Def2Def& map) const {
     return HENK_TABLE_NAME().lambda(domain(), body()->reduce(depth+1, def, map), loc(), name());
 }
 
+const Def* Pi::vreduce(int depth, const Def* def, Def2Def& map) const {
+    return HENK_TABLE_NAME().pi(domain(), body()->reduce(depth+1, def, map), loc(), name());
+}
+
+const Def* Tuple::vreduce(int depth, const Def* def, Def2Def& map) const {
+    return HENK_TABLE_NAME().tuple(reduce_ops(depth, def, map), loc(), name());
+}
+
+const Def* Sigma::vreduce(int depth, const Def* def, Def2Def& map) const {
+    if (is_nominal()) {
+        auto sigma = HENK_TABLE_NAME().sigma(num_ops(), loc(), name());
+        map[this] = sigma;
+
+        for (size_t i = 0, e = num_ops(); i != e; ++i)
+            sigma->set(i, op(i)->reduce(depth+i, def, map));
+
+        return sigma;
+    }  else {
+        Array<const Def*> ops(num_ops());
+        for (size_t i = 0, e = num_ops(); i != e; ++i)
+            ops[i] = op(i)->reduce(depth+i, def, map);
+        return map[this] = HENK_TABLE_NAME().sigma(ops, loc(), name());
+    }
+}
+
 const Def* Var::vreduce(int depth, const Def* def, Def2Def&) const {
     if (this->depth() == depth)
         return def;
     else if (this->depth() > depth)
-        return HENK_TABLE_NAME().var(type(), this->depth()-1);  // this is a free variable - shift by one
+        return HENK_TABLE_NAME().var(type(), this->depth()-1, loc(), name());   // this is a free variable - shift by one
     else
-        return this;                                            // this variable is not free - don't adjust
-}
-
-const Def* Sigma::vreduce(int depth, const Def* def, Def2Def& map) const {
-    auto struct_type = HENK_TABLE_NAME().struct_type(num_ops(), HENK_STRUCT_EXTRA_NAME());
-    map[this] = struct_type;
-    auto ops = reduce_ops(depth, type, map);
-
-    for (size_t i = 0, e = num_ops(); i != e; ++i)
-        struct_type->set(i, ops[i]);
-
-    return struct_type;
+        return this;                                                            // this variable is not free - don't adjust
 }
 
 const Def* App::vreduce(int depth, const Def* def, Def2Def& map) const {
     auto ops = reduce_ops(depth, def, map);
-    return HENK_TABLE_NAME().app(ops[0], ops[1]);
-}
-
-const Def* Tuple::vreduce(int depth, const Def* def, Def2Def& map) const {
-    return HENK_TABLE_NAME().tuple(reduce_ops(depth, def, map));
+    return HENK_TABLE_NAME().app(ops[0], ops[1], loc(), name());
 }
 
 //const Def* TypeError::vreduce(int, const Def*, Def2Def&) const { return this; }
 
 //------------------------------------------------------------------------------
 
+#if 0
 template<class T>
 const StructType* TableBase<T>::struct_type(HENK_STRUCT_EXTRA_TYPE HENK_STRUCT_EXTRA_NAME, size_t size) {
     auto type = new StructType(HENK_TABLE_NAME(), HENK_STRUCT_EXTRA_NAME, size);
     const auto& p = types_.insert(type);
     assert_unused(p.second && "hash/equal broken");
-    assert(!type->is_hashed());
     type->hashed_ = true;
     return type;
 }
+#endif
 
 template<class T>
-const Def* TableBase<T>::app(const Def* callee, const Def* arg, const Location& loc, const std::string& name = "") {
+const Def* TableBase<T>::app(const Def* callee, const Def* arg, const Location& loc, const std::string& name) {
     if (auto sigma = arg->type()->isa<Sigma>()) {
         Array<const Def*> args;
         for (size_t i = 0, e = sigma->num_ops(); i != e; ++i)
@@ -202,70 +244,32 @@ const Def* TableBase<T>::app(const Def* callee, const Def* arg, const Location& 
 }
 
 template<class T>
-const Def* TableBase<T>::app(const Def* callee, Defs args, const Location& loc, const std::string& name = "") { 
+const Def* TableBase<T>::app(const Def* callee, Defs args, const Location& loc, const std::string& name) { 
     if (args.size() == 1 && args.front()->type()->isa<Sigma>())
-        return app(calee, args.front(), loc, name);
+        return app(callee, args.front(), loc, name);
 
-    auto app = unify(new App(HENK_TABLE_NAME(), callee, arg));
+    auto app = unify(new App(HENK_TABLE_NAME(), callee, args, loc, name));
 
-    if (app->is_hashed()) {
-        if (auto cache = app->cache_)
-            return cache;
-        if (auto lambda = app->callee()->template isa<Lambda>()) {
-            Def2Def map;
-            return app->cache_ = lambda->body()->reduce(1, op, map);
-        } else {
-            return app->cache_ = app;
-        }
-    }
+    if (auto cache = app->cache_)
+        return cache;
+    if (auto lambda = app->callee()->template isa<Lambda>()) {
+        Def2Def map;
+        return app->cache_ = lambda->body()->reduce(1, args.front(), map); // TODO reduce args
+    } else
+        return app->cache_ = app;
 
     return app;
 }
 
 template<class T>
 const Def* TableBase<T>::unify_base(const Def* def) {
-    if (def->is_hashed())
-        return type;
+    assert(!def->is_nominal());
+    auto p = defs_.emplace(def);
+    if (p.second)
+        return def;
 
-    auto i = types_.find(type);
-    if (i != types_.end()) {
-        destroy(type);
-        type = *i;
-        assert(type->is_hashed());
-        return type;
-    }
-
-    return insert(type);
-}
-
-template<class T>
-const Def* TableBase<T>::insert(const Def* type) {
-    for (auto op : type->ops()) {
-        if (!op->is_hashed())
-            insert(op);
-    }
-
-    const auto& p = types_.insert(type);
-    assert_unused(p.second && "hash/equal broken");
-    assert(!type->is_hashed());
-    type->hashed_ = true;
-    return type;
-}
-
-template<class T>
-void TableBase<T>::destroy(const Def* type) {
-    thorin::HashSet<const Def*> done;
-    destroy(type, done);
-}
-
-template<class T>
-void TableBase<T>::destroy(const Def* type, thorin::HashSet<const Def*>& done) {
-    if (!done.contains(type) && !type->is_hashed()) {
-        done.insert(type);
-        for (auto op : type->ops())
-            destroy(op, done);
-        delete type;
-    }
+    delete def;
+    return *p.first;
 }
 
 template class TableBase<HENK_TABLE_TYPE>;

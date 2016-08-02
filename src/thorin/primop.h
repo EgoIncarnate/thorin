@@ -18,7 +18,7 @@ protected:
         , is_outdated_(false)
     {
         for (size_t i = 0, e = num_ops(); i != e; ++i)
-            set_op(i, ops[i]);
+            set(i, ops[i]);
     }
 
 public:

@@ -24,55 +24,6 @@ namespace thorin {
 
 //------------------------------------------------------------------------------
 
-size_t Def::gid_counter_ = 1;
-
-Def::Def(NodeTag tag, const Type* type, size_t size, const Location& loc, const std::string& name)
-    : HasLocation(loc)
-    , tag_(tag)
-    , ops_(size)
-    , type_(type)
-    , gid_(gid_counter_++)
-    , name(name)
-{}
-
-void Def::set_op(size_t i, const Def* def) {
-    assert(!op(i) && "already set");
-    assert(def && "setting null pointer");
-    ops_[i] = def;
-    assert(!def->uses_.contains(Use(i, this)));
-    const auto& p = def->uses_.emplace(i, this);
-    assert_unused(p.second);
-}
-
-void Def::unregister_uses() const {
-    for (size_t i = 0, e = num_ops(); i != e; ++i)
-        unregister_use(i);
-}
-
-void Def::unregister_use(size_t i) const {
-    auto def = ops_[i];
-    assert(def->uses_.contains(Use(i, this)));
-    def->uses_.erase(Use(i, this));
-    assert(!def->uses_.contains(Use(i, this)));
-}
-
-void Def::unset_op(size_t i) {
-    assert(ops_[i] && "must be set");
-    unregister_use(i);
-    ops_[i] = nullptr;
-}
-
-void Def::unset_ops() {
-    for (size_t i = 0, e = num_ops(); i != e; ++i)
-        unset_op(i);
-}
-
-std::string Def::unique_name() const {
-    std::ostringstream oss;
-    oss << name << '_' << gid();
-    return oss.str();
-}
-
 bool is_const(const Def* def) {
     if (def->isa<Param>()) return false;
     if (def->isa<PrimOp>()) {

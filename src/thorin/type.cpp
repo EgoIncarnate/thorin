@@ -13,12 +13,6 @@ namespace thorin {
 
 //------------------------------------------------------------------------------
 
-StructType::StructType(World& world, size_t num_ops, const Location& loc, const std::string& name)
-    : Def(world, Node_StructType, world.star(), thorin::Array<const Def*>(num_ops), loc, name)
-{
-    nominal_ = true;
-}
-
 Type::Type(World& world, int tag, Defs ops)
     : Def(world, tag, world.star(), ops, Location(), "TODO")
 {}
@@ -54,7 +48,7 @@ const IndefiniteArrayType* is_indefinite(const Type* type) {
     return nullptr;
 }
 
-bool use_lea(const Type* type) { return type->isa<StructType>() || type->isa<ArrayType>(); }
+bool use_lea(const Type* type) { return type->isa<Sigma>() || type->isa<ArrayType>(); }
 
 //------------------------------------------------------------------------------
 
@@ -62,12 +56,12 @@ bool use_lea(const Type* type) { return type->isa<StructType>() || type->isa<Arr
  * vrebuild
  */
 
-const Type* DefiniteArrayType  ::vrebuild(World& to, Types ops) const { return to.definite_array_type(ops[0], dim()); }
-const Type* FnType             ::vrebuild(World& to, Types ops) const { return to.fn_type(ops); }
-const Type* FrameType          ::vrebuild(World& to, Types     ) const { return to.frame_type(); }
-const Type* IndefiniteArrayType::vrebuild(World& to, Types ops) const { return to.indefinite_array_type(ops[0]); }
-const Type* MemType            ::vrebuild(World& to, Types     ) const { return to.mem_type(); }
-const Type* PrimType           ::vrebuild(World& to, Types     ) const { return to.type(primtype_tag(), length()); }
+const Type* DefiniteArrayType  ::vrebuild(World& to, Defs ops) const { return to.definite_array_type(ops[0], dim()); }
+const Type* FnType             ::vrebuild(World& to, Defs ops) const { return to.fn_type(ops); }
+const Type* FrameType          ::vrebuild(World& to, Defs    ) const { return to.frame_type(); }
+const Type* IndefiniteArrayType::vrebuild(World& to, Defs ops) const { return to.indefinite_array_type(ops[0]); }
+const Type* MemType            ::vrebuild(World& to, Defs    ) const { return to.mem_type(); }
+const Type* PrimType           ::vrebuild(World& to, Defs    ) const { return to.type(primtype_tag(), length()); }
 
 const Type* PtrType::vrebuild(World& to, Types ops) const {
     return to.ptr_type(ops.front(), length(), device(), addr_space());
