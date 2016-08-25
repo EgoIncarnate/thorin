@@ -22,15 +22,15 @@ public:
     void dead_code_elimination();
     void verify_closedness();
     void within(const Def*);
-    void set_live(const PrimOp* primop) { nprimops_.insert(primop); primop->live_ = counter_; }
+    void set_live(const Def* def) { new_defs_.insert(def); def->live_ = counter_; }
     void set_reachable(Continuation* continuation)  { ncontinuations_.insert(continuation); continuation->reachable_ = counter_; }
-    static bool is_live(const PrimOp* primop) { return primop->live_ == counter_; }
+    static bool is_live(const Def* def) { return def->live_ == counter_; }
     static bool is_reachable(Continuation* continuation) { return continuation->reachable_ == counter_; }
 
 private:
     World& world_;
     ContinuationSet ncontinuations_;
-    World::PrimOpSet nprimops_;
+    World::DefSet new_defs_;
     Def2Def old2new_;
     static uint32_t counter_;
 };
@@ -108,11 +108,11 @@ void Cleaner::eliminate_params() {
 
             if (!proxy_idx.empty()) {
                 auto ncontinuation = world().continuation(world().fn_type(ocontinuation->type()->ops().cut(proxy_idx)),
-                                            ocontinuation->loc(), ocontinuation->cc(), ocontinuation->intrinsic(), ocontinuation->name);
+                                            ocontinuation->loc(), ocontinuation->cc(), ocontinuation->intrinsic(), ocontinuation->name());
                 size_t j = 0;
                 for (auto i : param_idx) {
                     ocontinuation->param(i)->replace(ncontinuation->param(j));
-                    ncontinuation->param(j++)->name = ocontinuation->param(i)->name;
+                    ncontinuation->param(j++)->name_ = ocontinuation->param(i)->name();
                 }
 
                 ncontinuation->jump(ocontinuation->callee(), ocontinuation->args(), ocontinuation->jump_loc());
@@ -186,10 +186,10 @@ void Cleaner::verify_closedness() {
         size_t i = 0;
         for (auto op : def->ops()) {
             within(op);
-            assert(op->uses_.find(Use(i++, def)) != op->uses_.end() && "can't find def in op's uses");
+            assert(op->uses().find(Use(i++, def)) != op->uses().end() && "can't find def in op's uses");
         }
 
-        for (auto use : def->uses_) {
+        for (const auto& use : def->uses()) {
             within(use.def());
             assert(use->op(use.index()) == def && "can't use doesn't point to def");
         }
@@ -230,13 +230,13 @@ void Cleaner::cleanup() {
             primop->unregister_uses();
     }
 
-    swap(world().primops_, nprimops_);
+    swap(world().defs_, new_defs_);
     swap(world().continuations_, ncontinuations_);
 #ifndef NDEBUG
     verify_closedness();
 #endif
 
-    for (auto primop : nprimops_) {
+    for (auto primop : new_defs_) {
         if (!is_live(primop))
             delete primop;
     }

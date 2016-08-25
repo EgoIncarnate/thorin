@@ -52,6 +52,10 @@ public:
     size_t index() const { return index_; }
     std::vector<Peek> peek() const;
 
+    virtual const Def* vrebuild(World&, Defs) const override;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
+    virtual std::ostream& stream(std::ostream&) const override;
+
 private:
     Continuation* const continuation_;
     const size_t index_;
@@ -155,6 +159,10 @@ public:
     void destroy_body();
     void refresh(Def2Def&);
 
+    virtual const Def* vrebuild(World&, Defs) const override;
+    virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
+
+    virtual std::ostream& stream(std::ostream&) const override;
     std::ostream& stream_head(std::ostream&) const;
     std::ostream& stream_jump(std::ostream&) const;
     void dump_head() const;

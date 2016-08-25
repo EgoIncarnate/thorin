@@ -89,6 +89,7 @@ protected:
         , ops_(num_ops)
         , gid_(gid_counter_++)
         , nominal_(true)
+        , is_outdated_(false)
     {}
 
     /// Use for structural @p Def%s.
@@ -98,6 +99,7 @@ protected:
         , ops_(ops.size())
         , gid_(gid_counter_++)
         , nominal_(false)
+        , is_outdated_(false)
     {
         for (size_t i = 0, e = num_ops(); i != e; ++i) {
             if (auto op = ops[i])
@@ -153,7 +155,7 @@ public:
     size_t gid() const { return gid_; }
     uint64_t hash() const { return hash_ == 0 ? hash_ = vhash() : hash_; }
     virtual bool equal(const Def*) const;
-    virtual bool is_outdated() const { return false; }
+    bool is_outdated() const { return is_outdated_; }
     virtual const Def* rebuild(Def2Def&) const { return this; }
 
     const Def* reduce(int, const Def*, Def2Def&) const;
@@ -188,7 +190,14 @@ private:
 public:
     mutable std::string name_;
 
+private:
+    mutable uint32_t live_ = 0;
+
+protected:
+    mutable bool is_outdated_ : 1;
+
     template<class> friend class TableBase;
+    friend class Cleaner;
     friend class Scope;
     friend class Tracker;
 };
@@ -490,14 +499,14 @@ public:
     const Def* app(const Def* callee, const Def* arg, const Location& loc, const std::string& name = "");
     const Def* app(const Def* callee, Defs args, const Location& loc, const std::string& name = "");
     const Tuple* tuple(const Def* type, Defs ops, const Location& loc, const std::string& name = "") { return unify(new Tuple(HENK_TABLE_NAME(), type, ops, loc, name)); }
-    const Tuple* tuple(Defs ops, const Location& loc, const std::string& name = "") { 
+    const Tuple* tuple(Defs ops, const Location& loc, const std::string& name = "") {
         Array<const Def*> types(ops.size());
         for (size_t i = 0, e = types.size(); i != e; ++i)
             types[i] = ops[i]->type();
         return tuple(sigma(types, loc, name), ops, loc, name);
     }
-    const Sigma* sigma(Defs ops, const Location& loc, const std::string& name = "") { return unify(new Sigma(HENK_TABLE_NAME(), ops, loc, name)); }
-    Sigma* sigma(size_t num_ops, const Location& loc, const std::string& name = "") { return insert(new Sigma(HENK_TABLE_NAME(), num_ops, loc, name)); }
+    const Sigma* sigma(Defs ops, const Location& loc = Location(), const std::string& name = "") { return unify(new Sigma(HENK_TABLE_NAME(), ops, loc, name)); }
+    Sigma* sigma(size_t num_ops, const Location& loc = Location(), const std::string& name = "") { return insert(new Sigma(HENK_TABLE_NAME(), num_ops, loc, name)); }
     const Error* error(const Def* type) { return unify(new Error(HENK_TABLE_NAME(), type)); }
     const Error* error() { return error(error(star())); }
 
@@ -505,7 +514,7 @@ public:
 
 protected:
     const Def* unify_base(const Def* type);
-    template<class T> 
+    template<class T>
     const T* unify(const T* type) { return unify_base(type)->template as<T>(); }
 
     template<class T>

@@ -26,7 +26,7 @@ public:
 protected:
     void optimize(int opt);
 
-    llvm::Type* convert(const Type*);
+    llvm::Type* convert(const Def*);
     llvm::Value* emit(const Def*);
     llvm::Value* lookup(const Def*);
     llvm::AllocaInst* emit_alloca(llvm::Type*, const std::string&);
@@ -53,7 +53,7 @@ private:
     Continuation* emit_sync(Continuation*);
     Continuation* emit_vectorize_continuation(Continuation*);
     Continuation* emit_atomic(Continuation*);
-    llvm::Value* emit_bitcast(const Def*, const Type*);
+    llvm::Value* emit_bitcast(const Def*, const Def*);
     virtual Continuation* emit_reserve(const Continuation*);
     void emit_result_phi(const Param*, llvm::Value*);
     void emit_vectorize(u32, llvm::Function*, llvm::CallInst*);
@@ -75,7 +75,7 @@ protected:
     HashMap<const Param*, llvm::PHINode*> phis_;
     HashMap<const PrimOp*, llvm::Value*> primops_;
     HashMap<Continuation*, llvm::Function*> fcts_;
-    TypeMap<llvm::Type*> types_;
+    DefMap<llvm::Type*> types_; // TODO just use one map
     std::vector<std::tuple<u32, llvm::Function*, llvm::CallInst*>> wfv_todo_;
 
     AutoPtr<Runtime> runtime_;

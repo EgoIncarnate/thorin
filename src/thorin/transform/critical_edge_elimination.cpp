@@ -9,7 +9,7 @@ namespace thorin {
 
 static bool update_src(Continuation* src, Continuation* dst, const char* suffix) {
     auto resolve = [&] (Continuation* dst) {
-        auto resolver = dst->stub(dst->name + suffix);
+        auto resolver = dst->stub(dst->name_ + suffix);
         resolver->jump(dst, resolver->params_as_defs(), resolver->jump_loc());
         return resolver;
     };

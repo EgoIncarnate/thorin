@@ -27,7 +27,6 @@ private:
     Def2Def def2def_;
     Defs args_;
     Defs lift_;
-    Type2Type type2type_;
     Continuation* old_entry_;
     Continuation* new_entry_;
     DefSet defs_;

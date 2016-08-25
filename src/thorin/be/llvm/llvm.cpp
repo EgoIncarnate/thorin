@@ -115,13 +115,13 @@ Continuation* CodeGen::emit_reserve_shared(const Continuation* continuation, boo
     // construct array type
     auto elem_type = cont->param(1)->type()->as<PtrType>()->referenced_type()->as<ArrayType>()->elem_type();
     auto smem_type = this->convert(continuation->world().definite_array_type(elem_type, num_elems));
-    auto global = emit_global_variable(smem_type, (prefix ? entry_->name + "." : "") + continuation->unique_name(), 3);
+    auto global = emit_global_variable(smem_type, (prefix ? entry_->name() + "." : "") + continuation->unique_name(), 3);
     auto call = irbuilder_.CreatePointerCast(global, type);
     emit_result_phi(cont->param(1), call);
     return cont;
 }
 
-llvm::Value* CodeGen::emit_bitcast(const Def* val, const Type* dst_type) {
+llvm::Value* CodeGen::emit_bitcast(const Def* val, const Def* dst_type) {
     auto from = lookup(val);
     auto src_type = val->type();
     auto to = convert(dst_type);
@@ -138,7 +138,7 @@ llvm::Function* CodeGen::emit_function_decl(Continuation* continuation) {
     if (auto f = find(fcts_, continuation))
         return f;
 
-    std::string name = (continuation->is_external() || continuation->empty()) ? continuation->name : continuation->unique_name();
+    std::string name = (continuation->is_external() || continuation->empty()) ? continuation->name() : continuation->unique_name();
     auto f = llvm::cast<llvm::Function>(module_->getOrInsertFunction(name, convert_fn_type(continuation)));
 
     // set linkage
@@ -217,14 +217,14 @@ void CodeGen::emit(int opt, bool debug) {
             auto continuation = block.continuation();
             // map all bb-like continuations to llvm bb stubs
             if (continuation->intrinsic() != Intrinsic::EndScope) {
-                auto bb = bb2continuation[continuation] = llvm::BasicBlock::Create(context_, continuation->name, fct);
+                auto bb = bb2continuation[continuation] = llvm::BasicBlock::Create(context_, continuation->name(), fct);
 
                 // create phi node stubs (for all continuations different from entry)
                 if (entry_ != continuation) {
                     for (auto param : continuation->params()) {
                         if (!is_mem(param)) {
                             phis_[param] = llvm::PHINode::Create(convert(param->type()),
-                                                                 (unsigned) param->peek().size(), param->name, bb);
+                                                                 (unsigned) param->peek().size(), param->name(), bb);
                         }
                     }
                 }
@@ -483,7 +483,7 @@ llvm::Value* CodeGen::emit(const Def* def) {
     if (auto bin = def->isa<BinOp>()) {
         llvm::Value* lhs = lookup(bin->lhs());
         llvm::Value* rhs = lookup(bin->rhs());
-        std::string& name = bin->name;
+        const auto& name = bin->name();
 
         if (auto cmp = bin->isa<Cmp>()) {
             auto type = cmp->lhs()->type();
@@ -654,13 +654,13 @@ llvm::Value* CodeGen::emit(const Def* def) {
             return llvm::ConstantArray::get(type, llvm_ref(vals));
         }
         WLOG("slow: alloca and loads/stores needed for definite array '%' at '%'", def, def->loc());
-        auto alloca = emit_alloca(type, array->name);
+        auto alloca = emit_alloca(type, array->name());
 
         u64 i = 0;
         llvm::Value* args[2] = { irbuilder_.getInt64(0), nullptr };
         for (auto op : array->ops()) {
             args[1] = irbuilder_.getInt64(i++);
-            auto gep = irbuilder_.CreateInBoundsGEP(alloca, args, op->name);
+            auto gep = irbuilder_.CreateInBoundsGEP(alloca, args, op->name());
             irbuilder_.CreateStore(lookup(op), gep);
         }
 
@@ -671,7 +671,7 @@ llvm::Value* CodeGen::emit(const Def* def) {
         return llvm::UndefValue::get(convert(array->type()));
 
     if (auto agg = def->isa<Aggregate>()) {
-        assert(def->isa<Tuple>() || def->isa<StructAgg>() || def->isa<Vector>());
+        assert(def->isa<Sigma>() || def->isa<Vector>());
         llvm::Value* llvm_agg = llvm::UndefValue::get(convert(agg->type()));
 
         if (def->isa<Vector>()) {
@@ -690,7 +690,7 @@ llvm::Value* CodeGen::emit(const Def* def) {
         auto llvm_idx = lookup(aggop->index());
         auto copy_to_alloca = [&] () {
             WLOG("slow: alloca and loads/stores needed for aggregate '%' at '%'", def, def->loc());
-            auto alloca = emit_alloca(llvm_agg->getType(), aggop->name);
+            auto alloca = emit_alloca(llvm_agg->getType(), aggop->name());
             irbuilder_.CreateStore(llvm_agg, alloca);
 
             llvm::Value* args[2] = { irbuilder_.getInt64(0), llvm_idx };
@@ -793,7 +793,7 @@ llvm::Value* CodeGen::emit(const Def* def) {
             val = fcts_[continuation];
         else {
             auto llvm_type = convert(global->alloced_type());
-            auto var = llvm::cast<llvm::GlobalVariable>(module_->getOrInsertGlobal(global->name, llvm_type));
+            auto var = llvm::cast<llvm::GlobalVariable>(module_->getOrInsertGlobal(global->name(), llvm_type));
             if (global->init()->isa<Bottom>())
                 var->setInitializer(llvm::Constant::getNullValue(llvm_type)); // HACK
             else
@@ -815,7 +815,7 @@ llvm::Value* CodeGen::emit_store(const Store* store) {
 }
 
 llvm::Value* CodeGen::emit_lea(const LEA* lea) {
-    if (lea->ptr_referenced_type()->isa<TupleType>() || lea->ptr_referenced_type()->isa<StructType>())
+    if (lea->ptr_referenced_type()->isa<Sigma>())
         return irbuilder_.CreateStructGEP(lookup(lea->ptr()), primlit_value<u32>(lea->index()));
 
     assert(lea->ptr_referenced_type()->isa<ArrayType>());
@@ -823,7 +823,7 @@ llvm::Value* CodeGen::emit_lea(const LEA* lea) {
     return irbuilder_.CreateInBoundsGEP(lookup(lea->ptr()), args);
 }
 
-llvm::Type* CodeGen::convert(const Type* type) {
+llvm::Type* CodeGen::convert(const Def* type) {
     if (auto llvm_type = thorin::find(types_, type))
         return llvm_type;
 
@@ -899,27 +899,19 @@ multiple:
             return types_[type] = llvm::FunctionType::get(ret, ops, false);
         }
 
-        case Node_StructType: {
-            auto struct_type = type->as<StructType>();
+        case Node_Sigma: {
+            auto sigma = type->as<Sigma>();
             auto llvm_struct = llvm::StructType::create(context_);
 
             // important: memoize before recursing into element types to avoid endless recursion
-            assert(!types_.contains(struct_type) && "type already converted");
-            types_[struct_type] = llvm_struct;
+            assert(!types_.contains(sigma) && "type already converted");
+            types_[sigma] = llvm_struct;
 
-            Array<llvm::Type*> llvm_types(struct_type->num_ops());
+            Array<llvm::Type*> llvm_types(sigma->num_ops());
             for (size_t i = 0, e = llvm_types.size(); i != e; ++i)
-                llvm_types[i] = convert(struct_type->op(i));
+                llvm_types[i] = convert(sigma->op(i));
             llvm_struct->setBody(llvm_ref(llvm_types));
             return llvm_struct;
-        }
-
-        case Node_TupleType: {
-            auto tuple = type->as<TupleType>();
-            Array<llvm::Type*> llvm_types(tuple->num_ops());
-            for (size_t i = 0, e = llvm_types.size(); i != e; ++i)
-                llvm_types[i] = convert(tuple->op(i));
-            return types_[tuple] = llvm::StructType::get(context_, llvm_ref(llvm_types));
         }
 
         default:
@@ -983,13 +975,13 @@ void emit_llvm(World& world, int opt, bool debug) {
         else
             return;
 
-        imported->name = continuation->unique_name();
+        imported->name_ = continuation->unique_name();
         imported->make_external();
-        continuation->name = continuation->unique_name();
+        continuation->name_ = continuation->unique_name();
         continuation->destroy_body();
 
         for (size_t i = 0, e = continuation->num_params(); i != e; ++i)
-            imported->param(i)->name = continuation->param(i)->unique_name();
+            imported->param(i)->name_ = continuation->param(i)->unique_name();
     });
 
     if (!cuda.empty() || !nvvm.empty() || !spir.empty() || !opencl.empty())

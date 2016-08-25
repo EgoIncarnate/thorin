@@ -15,7 +15,6 @@ class PrimOp : public Def {
 protected:
     PrimOp(NodeTag tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
         : Def(type->world(), tag, type, ops.size(), loc, name)
-        , is_outdated_(false)
     {
         for (size_t i = 0, e = num_ops(); i != e; ++i)
             set(i, ops[i]);
@@ -26,7 +25,6 @@ public:
     virtual const Def* vreduce(int, const Def*, Def2Def&) const override; // TODO
     virtual const Def* vrebuild(World& to, Defs ops) const override; // TODO
     virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const = 0;
-    virtual bool is_outdated() const override { return is_outdated_; }
     virtual const Def* rebuild(Def2Def&) const override;
     const Def* rebuild(World& to, Defs ops, const Def* type) const {
         assert(this->num_ops() == ops.size());
@@ -43,14 +41,9 @@ protected:
     /// Is @p def the @p i^th result of a @p T @p PrimOp?
     template<int i, class T> inline static const T* is_out(const Def* def);
 
-private:
-    mutable uint32_t live_ = 0;
-    mutable bool is_outdated_ : 1;
-
     friend struct PrimOpHash;
     friend struct PrimOpEqual;
     friend class World;
-    friend class Cleaner;
     friend void Def::replace(const Def*) const;
 };
 

@@ -61,7 +61,7 @@ Continuation* Runtime::emit_host_code(CodeGen& code_gen, Platform platform, cons
     auto kernel = continuation->arg(ACC_ARG_BODY)->as<Global>()->init()->as<Continuation>();
 
     // load kernel
-    auto kernel_name = builder_.CreateGlobalStringPtr(kernel->name);
+    auto kernel_name = builder_.CreateGlobalStringPtr(kernel->name());
     auto file_name = builder_.CreateGlobalStringPtr(continuation->world().name() + ext);
     load_kernel(target_device, file_name, kernel_name);
 
@@ -74,13 +74,11 @@ Continuation* Runtime::emit_host_code(CodeGen& code_gen, Platform platform, cons
 
         // check device target
         if (target_arg->type()->isa<DefiniteArrayType>() ||
-            target_arg->type()->isa<StructType>() ||
-            target_arg->type()->isa<TupleType>()) {
-            // definite array | struct | tuple
-            auto alloca = code_gen.emit_alloca(target_val->getType(), target_arg->name);
+            target_arg->type()->isa<Sigma>()) {
+            auto alloca = code_gen.emit_alloca(target_val->getType(), target_arg->name());
             builder_.CreateStore(target_val, alloca);
             auto void_ptr = builder_.CreatePointerCast(alloca, builder_.getInt8PtrTy());
-            // TODO: recurse over struct|tuple and check if it contains pointers
+            // TODO: recurse over sigma and check if it contains pointers
             set_kernel_arg_struct(target_device, i, void_ptr, target_val->getType());
         } else if (target_arg->type()->isa<PtrType>()) {
             auto ptr = target_arg->type()->as<PtrType>();
@@ -93,7 +91,7 @@ Continuation* Runtime::emit_host_code(CodeGen& code_gen, Platform platform, cons
             set_kernel_arg_ptr(target_device, i, void_ptr);
         } else {
             // normal variable
-            auto alloca = code_gen.emit_alloca(target_val->getType(), target_arg->name);
+            auto alloca = code_gen.emit_alloca(target_val->getType(), target_arg->name());
             builder_.CreateStore(target_val, alloca);
             auto void_ptr = builder_.CreatePointerCast(alloca, builder_.getInt8PtrTy());
             set_kernel_arg(target_device, i, void_ptr, target_val->getType());

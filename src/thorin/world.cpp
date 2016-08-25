@@ -41,7 +41,7 @@ namespace thorin {
 
 World::World(std::string name)
     : name_(name)
-    , fn0_    (unify(new FnType   (*this, Types())))
+    , fn0_    (unify(new FnType   (*this, Defs())))
     , mem_    (unify(new MemType  (*this)))
     , frame_  (unify(new FrameType(*this)))
 #define THORIN_ALL_TYPE(T, M) \
@@ -459,15 +459,15 @@ const Def* World::cmp(CmpTag tag, const Def* a, const Def* b, const Location& lo
  * casts
  */
 
-const Def* World::convert(const Type* dst_type, const Def* src, const Location& loc, const std::string& name) {
+const Def* World::convert(const Def* dst_type, const Def* src, const Location& loc, const std::string& name) {
     if (dst_type == src->type())
         return src;
     if (src->type()->isa<PtrType>() && dst_type->isa<PtrType>())
         return bitcast(dst_type, src, loc, name);
-    if (auto dst_tuple_type = dst_type->isa<TupleType>()) {
-        assert(dst_tuple_type->num_ops() == src->type()->as<TupleType>()->num_ops());
+    if (auto dst_sigma = dst_type->isa<Sigma>()) {
+        assert(dst_sigma->num_ops() == src->type()->as<Sigma>()->num_ops());
 
-        Array<const Def*> new_tuple(dst_tuple_type->num_ops());
+        Array<const Def*> new_tuple(dst_sigma->num_ops());
         for (size_t i = 0, e = new_tuple.size(); i != e; ++i)
             new_tuple[i] = convert(dst_type->op(i), extract(src, i, loc, name), loc, name);
 
@@ -477,7 +477,7 @@ const Def* World::convert(const Type* dst_type, const Def* src, const Location& 
     return cast(dst_type, src, loc, name);
 }
 
-const Def* World::cast(const Type* to, const Def* from, const Location& loc, const std::string& name) {
+const Def* World::cast(const Def* to, const Def* from, const Location& loc, const std::string& name) {
     if (auto vec = from->isa<Vector>()) {
         size_t num = vector_length(vec);
         auto to_vec = to->as<VectorType>();
@@ -570,7 +570,7 @@ const Def* World::cast(const Type* to, const Def* from, const Location& loc, con
     return cse(new Cast(to, from, loc, name));
 }
 
-const Def* World::bitcast(const Type* to, const Def* from, const Location& loc, const std::string& name) {
+const Def* World::bitcast(const Def* to, const Def* from, const Location& loc, const std::string& name) {
     if (auto other = from->isa<Bitcast>()) {
         if (to == other->type())
             return other;
@@ -638,21 +638,14 @@ const Def* World::insert(const Def* agg, const Def* index, const Def* value, con
         if (auto definite_array_type = agg->type()->isa<DefiniteArrayType>()) {
             Array<const Def*> args(definite_array_type->dim());
             std::fill(args.begin(), args.end(), bottom(definite_array_type->elem_type(), loc));
-            agg = definite_array(args, loc, agg->name);
-        } else if (auto tuple_type = agg->type()->isa<TupleType>()) {
-            Array<const Def*> args(tuple_type->num_ops());
+            agg = definite_array(args, loc, agg->name());
+        } else if (auto sigma = agg->type()->isa<Sigma>()) {
+            Array<const Def*> args(sigma->num_ops());
             size_t i = 0;
-            for (auto type : tuple_type->ops())
+            for (auto type : sigma->ops())
                 args[i++] = bottom(type, loc);
-            agg = tuple(args, loc, agg->name);
-        } else if (auto struct_type = agg->type()->isa<StructType>()) {
-            Array<const Def*> args(struct_type->num_ops());
-            size_t i = 0;
-            for (auto type : struct_type->ops())
-                args[i++] = bottom(type, loc);
-            agg = struct_agg(struct_type, args, loc, agg->name);
+            agg = tuple(sigma, args, loc, agg->name());
         }
-
     }
 
     // TODO double-check
@@ -723,7 +716,7 @@ const Def* World::store(const Def* mem, const Def* ptr, const Def* value, const 
     if (auto insert = value->isa<Insert>()) {
         if (use_lea(ptr->type()->as<PtrType>()->referenced_type())) {
             auto peeled_store = store(mem, ptr, insert->agg(), loc);
-            return store(peeled_store, lea(ptr, insert->index(), insert->loc(), insert->name), insert->value(), loc, name);
+            return store(peeled_store, lea(ptr, insert->index(), insert->loc(), insert->name()), insert->value(), loc, name);
         }
     }
 
@@ -736,7 +729,7 @@ const Def* World::enter(const Def* mem, const Location& loc, const std::string& 
     return cse(new Enter(mem, loc, name));
 }
 
-const Def* World::alloc(const Type* type, const Def* mem, const Def* extra, const Location& loc, const std::string& name) {
+const Def* World::alloc(const Def* type, const Def* mem, const Def* extra, const Location& loc, const std::string& name) {
     return cse(new Alloc(type, mem, extra, loc, name));
 }
 
@@ -780,7 +773,7 @@ Continuation* World::basicblock(const Location& loc, const std::string& name) {
     return bb;
 }
 
-const Param* World::param(const Type* type, Continuation* continuation, size_t index, const std::string& name) {
+const Param* World::param(const Def* type, Continuation* continuation, size_t index, const std::string& name) {
     auto param = new Param(type, continuation, index, continuation->loc(), name);
     THORIN_CHECK_BREAK(param->gid());
     return param;

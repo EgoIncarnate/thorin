@@ -48,7 +48,7 @@ static AddrSpace resolve_addr_space(const Def* def) {
 
 llvm::FunctionType* NVVMCodeGen::convert_fn_type(Continuation* continuation) {
     // skip non-global address-space parameters
-    std::vector<const Type*> types;
+    std::vector<const Def*> types;
     for (auto type : continuation->type()->ops()) {
         if (auto ptr = type->isa<PtrType>())
             if (ptr->addr_space() == AddrSpace::Texture)
@@ -71,7 +71,7 @@ void NVVMCodeGen::emit_function_decl_hook(Continuation* continuation, llvm::Func
 
     const auto emit_texture_kernel_arg = [&](const Param* param) {
         assert(param->type()->as<PtrType>()->addr_space() == AddrSpace::Texture);
-        auto global = emit_global_variable(irbuilder_.getInt64Ty(), param->name, 1);
+        auto global = emit_global_variable(irbuilder_.getInt64Ty(), param->name(), 1);
         metadata_[param] = append_metadata(global, "texture");
     };
 
@@ -142,7 +142,7 @@ llvm::Value* NVVMCodeGen::emit_store(const Store* store) {
     return CodeGen::emit_store(store);
 }
 
-static std::string get_texture_fetch_command(const Type* type) {
+static std::string get_texture_fetch_command(const Def* type) {
     std::stringstream fun_str;
     fun_str << "tex.1d.v4.";
     switch (type->as<PrimType>()->primtype_tag()) {
@@ -164,7 +164,7 @@ static std::string get_texture_fetch_command(const Type* type) {
     return fun_str.str();
 }
 
-static std::string get_texture_fetch_constraint(const Type* type) {
+static std::string get_texture_fetch_constraint(const Def* type) {
     std::stringstream constraint_str;
     char c;
     switch (type->as<PrimType>()->primtype_tag()) {
@@ -218,7 +218,7 @@ Continuation* NVVMCodeGen::emit_reserve(const Continuation* continuation) { retu
 
 llvm::GlobalVariable* NVVMCodeGen::resolve_global_variable(const Param* param) {
     if (resolve_addr_space(param) != AddrSpace::Global)
-        return module_->getGlobalVariable(param->name, true);
+        return module_->getGlobalVariable(param->name(), true);
     return nullptr;
 }
 

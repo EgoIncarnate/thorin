@@ -29,23 +29,23 @@ public:
 
 private:
     std::ostream& emit_aggop_defs(const Def*);
-    std::ostream& emit_aggop_decl(const Type*);
+    std::ostream& emit_aggop_decl(const Def*);
     std::ostream& emit_debug_info(const Def*);
     std::ostream& emit_bitcast(const Def*, const Def*);
-    std::ostream& emit_addr_space(std::ostream&, const Type*);
-    std::ostream& emit_type(std::ostream&, const Type*);
+    std::ostream& emit_addr_space(std::ostream&, const Def*);
+    std::ostream& emit_type(std::ostream&, const Def*);
     std::ostream& emit(const Def*);
-    bool lookup(const Type*);
+    bool lookup_type(const Def*);
     bool lookup(const Def*);
-    void insert(const Type*, std::string);
+    void insert_type(const Def*, std::string);
     void insert(const Def*, std::string);
-    std::string& get_name(const Type*);
+    std::string& get_type_name(const Def*);
     std::string& get_name(const Def*);
-    bool is_texture_type(const Type*);
+    bool is_texture_type(const Def*);
 
     World& world_;
     Lang lang_;
-    TypeMap<std::string> type2str_;
+    DefMap<std::string> type2str_; // TODO remove this map and just use one def2str_ map
     DefMap<std::string> def2str_;
     bool use_64_ = false;
     bool use_16_ = false;
@@ -64,7 +64,7 @@ std::ostream& CCodeGen::emit_debug_info(const Def* def) {
 }
 
 
-std::ostream& CCodeGen::emit_addr_space(std::ostream& os, const Type* type) {
+std::ostream& CCodeGen::emit_addr_space(std::ostream& os, const Def* type) {
     if (auto ptr = type->isa<PtrType>()) {
         if (lang_==Lang::OPENCL) {
             switch (ptr->addr_space()) {
@@ -79,7 +79,7 @@ std::ostream& CCodeGen::emit_addr_space(std::ostream& os, const Type* type) {
     return os;
 }
 
-std::ostream& CCodeGen::emit_type(std::ostream& os, const Type* type) {
+std::ostream& CCodeGen::emit_type(std::ostream& os, const Def* type) {
     if (type == nullptr) {
         return os << "NULL";
     } else if (type->isa<FrameType>()) {
@@ -88,25 +88,15 @@ std::ostream& CCodeGen::emit_type(std::ostream& os, const Type* type) {
         return os << "void";
     } else if (type->isa<FnType>()) {
         THORIN_UNREACHABLE;
-    } else if (auto tuple = type->isa<TupleType>()) {
-        if (lookup(tuple))
-            return os << get_name(tuple);
-        os << "typedef struct tuple_" << tuple->gid() << " {" << up;
-        for (size_t i = 0, e = tuple->ops().size(); i != e; ++i) {
+    } else if (auto sigma = type->isa<Sigma>()) {
+        if (lookup_type(sigma))
+            return os << get_type_name(sigma);
+        os << "typedef struct struct_" << sigma->gid() << " {" << up;
+        for (size_t i = 0, e = sigma->num_ops(); i != e; ++i) {
             os << endl;
-            emit_type(os, tuple->op(i)) << " e" << i << ";";
+            emit_type(os, sigma->op(i)) << " e" << i << ";";
         }
-        os << down << endl << "} tuple_" << tuple->gid() << ";";
-        return os;
-    } else if (auto struct_type = type->isa<StructType>()) {
-        if (lookup(struct_type))
-            return os << get_name(struct_type);
-        os << "typedef struct struct_" << struct_type->gid() << " {" << up;
-        for (size_t i = 0, e = struct_type->num_ops(); i != e; ++i) {
-            os << endl;
-            emit_type(os, struct_type->op(i)) << " e" << i << ";";
-        }
-        os << down << endl << "} struct_" << struct_type->gid() << ";";
+        os << down << endl << "} struct_" << sigma->gid() << ";";
         return os;
     } else if (type->isa<Var>()) {
         THORIN_UNREACHABLE;
@@ -114,8 +104,8 @@ std::ostream& CCodeGen::emit_type(std::ostream& os, const Type* type) {
         emit_type(os, array->elem_type());
         return os;
     } else if (auto array = type->isa<DefiniteArrayType>()) { // DefArray is mapped to a struct
-        if (lookup(array))
-            return os << get_name(array);
+        if (lookup_type(array))
+            return os << get_type_name(array);
         os << "typedef struct array_" << array->gid() << " {" << up << endl;
         emit_type(os, array->elem_type()) << " e[" << array->dim() << "];";
         os << down << endl << "} array_" << array->gid() << ";";
@@ -179,8 +169,8 @@ std::ostream& CCodeGen::emit_aggop_defs(const Def* def) {
 }
 
 
-std::ostream& CCodeGen::emit_aggop_decl(const Type* type) {
-    if (lookup(type))
+std::ostream& CCodeGen::emit_aggop_decl(const Def* type) {
+    if (lookup_type(type))
         return type_decls_;
 
     // set indent to zero
@@ -202,23 +192,15 @@ std::ostream& CCodeGen::emit_aggop_decl(const Type* type) {
     if (auto array = type->isa<DefiniteArrayType>()) {
         emit_aggop_decl(array->elem_type());
         emit_type(type_decls_, array) << endl;
-        insert(type, "array_" + std::to_string(type->gid()));
-    }
-
-    // look for nested tuple
-    if (auto tuple = type->isa<TupleType>()) {
-        for (auto op : tuple->ops())
-            emit_aggop_decl(op);
-        emit_type(type_decls_, tuple) << endl;
-        insert(type, "tuple_" + std::to_string(type->gid()));
+        insert_type(type, "array_" + std::to_string(type->gid()));
     }
 
     // look for nested struct
-    if (auto struct_type = type->isa<StructType>()) {
-        for (auto op : struct_type->ops())
+    if (auto sigma = type->isa<Sigma>()) {
+        for (auto op : sigma->ops())
             emit_aggop_decl(op);
-        emit_type(type_decls_, struct_type) << endl;
-        insert(type, "struct_" + std::to_string(type->gid()));
+        emit_type(type_decls_, sigma) << endl;
+        insert_type(type, "struct_" + std::to_string(type->gid()));
     }
 
     // restore indent
@@ -290,8 +272,8 @@ void CCodeGen::emit() {
 
         // emit function & its declaration
         auto ret_param_fn_type = ret_param->type()->as<FnType>();
-        auto ret_type = ret_param_fn_type->num_ops() > 2 ? world_.tuple_type(ret_param_fn_type->ops().skip_front()) : ret_param_fn_type->ops().back();
-        auto name = (continuation->is_external() || continuation->empty()) ? continuation->name : continuation->unique_name();
+        auto ret_type = ret_param_fn_type->num_ops() > 2 ? world_.sigma(ret_param_fn_type->ops().skip_front()) : ret_param_fn_type->ops().back();
+        auto name = (continuation->is_external() || continuation->empty()) ? continuation->name() : continuation->unique_name();
         if (continuation->is_external()) {
             switch (lang_) {
                 case Lang::C99:                                  break;
@@ -321,8 +303,8 @@ void CCodeGen::emit() {
                     type_decls_ << "texture<";
                     emit_type(type_decls_, param->type()->as<PtrType>()->referenced_type());
                     type_decls_ << ", cudaTextureType1D, cudaReadModeElementType> ";
-                    type_decls_ << param->name << ";" << endl;
-                    insert(param, param->name);
+                    type_decls_ << param->name() << ";" << endl;
+                    insert(param, param->name());
                     // skip arrays bound to texture memory
                     continue;
                 }
@@ -333,8 +315,7 @@ void CCodeGen::emit() {
 
                 if (lang_==Lang::OPENCL && continuation->is_external() &&
                     (param->type()->isa<DefiniteArrayType>() ||
-                     param->type()->isa<StructType>() ||
-                     param->type()->isa<TupleType>())) {
+                     param->type()->isa<Sigma>())) {
                     // structs are passed via buffer; the parameter is a pointer to this buffer
                     func_decls_ << "__global ";
                     func_impl_  << "__global ";
@@ -357,8 +338,7 @@ void CCodeGen::emit() {
             if (param->order() == 0 && !is_mem(param)) {
                 if (lang_==Lang::OPENCL && continuation->is_external() &&
                     (param->type()->isa<DefiniteArrayType>() ||
-                     param->type()->isa<StructType>() ||
-                     param->type()->isa<TupleType>())) {
+                     param->type()->isa<Sigma>())) {
                     func_impl_ << endl;
                     emit_type(func_impl_, param->type()) << " " << param->unique_name() << " = *" << param->unique_name() << "_;";
                 }
@@ -458,7 +438,7 @@ void CCodeGen::emit() {
                         // FALLTHROUGH
                     default: {
                         auto ret_param_fn_type = continuation->arg_fn_type();
-                        auto ret_type = world_.tuple_type(ret_param_fn_type->ops().skip_front());
+                        auto ret_type = world_.sigma(ret_param_fn_type->ops().skip_front());
                         auto ret_tuple_name = "ret_tuple" + std::to_string(continuation->gid());
                         emit_aggop_decl(ret_type);
                         emit_type(func_impl_, ret_type) << " " << ret_tuple_name << ";";
@@ -525,7 +505,7 @@ void CCodeGen::emit() {
                         }
                     } else {
                         auto emit_call = [&] (const Param* param = nullptr) {
-                            auto name = (callee->is_external() || callee->empty()) ? callee->name : callee->unique_name();
+                            auto name = (callee->is_external() || callee->empty()) ? callee->name() : callee->unique_name();
                             if (param)
                                 emit(param) << " = ";
                             func_impl_ << name << "(";
@@ -579,7 +559,7 @@ void CCodeGen::emit() {
                                 default: {
                                     assert(is_mem(succ->param(0)));
                                     auto ret_param_fn_type = ret_arg->type()->as<FnType>();
-                                    auto ret_type = world_.tuple_type(ret_param_fn_type->ops().skip_front());
+                                    auto ret_type = world_.sigma(ret_param_fn_type->ops().skip_front());
 
                                     auto ret_tuple_name = "ret_tuple" + std::to_string(continuation->gid());
                                     emit_aggop_decl(ret_type);
@@ -761,7 +741,7 @@ std::ostream& CCodeGen::emit(const Def* def) {
         };
 
         if (auto agg = def->isa<Aggregate>()) {
-            assert(def->isa<Tuple>() || def->isa<StructAgg>() || def->isa<Vector>());
+            assert(def->isa<Tuple>() || def->isa<Vector>());
             // emit definitions of inlined elements
             for (auto op : agg->ops())
                 emit_aggop_defs(op);
@@ -886,7 +866,7 @@ std::ostream& CCodeGen::emit(const Def* def) {
             emit(lea->ptr()) << ", ";
             emit(lea->index()) << ");";
         } else {
-            if (lea->ptr_referenced_type()->isa<TupleType>() || lea->ptr_referenced_type()->isa<StructType>()) {
+            if (lea->ptr_referenced_type()->isa<Sigma>()) {
                 emit_type(func_impl_, lea->type()) << " " << lea->unique_name() << ";" << endl;
                 func_impl_ << lea->unique_name() << " = &";
                 emit(lea->ptr()) << "->e";
@@ -939,14 +919,14 @@ std::ostream& CCodeGen::emit(const Def* def) {
     THORIN_UNREACHABLE;
 }
 
-bool CCodeGen::lookup(const Type* type) {
+bool CCodeGen::lookup_type(const Def* type) {
     return type2str_.contains(type);
 }
 bool CCodeGen::lookup(const Def* def) {
     return def2str_.contains(def);
 }
 
-std::string& CCodeGen::get_name(const Type* type) {
+std::string& CCodeGen::get_type_name(const Def* type) {
     return type2str_[type];
 }
 
@@ -954,7 +934,7 @@ std::string& CCodeGen::get_name(const Def* def) {
     return def2str_[def];
 }
 
-void CCodeGen::insert(const Type* type, std::string str) {
+void CCodeGen::insert_type(const Def* type, std::string str) {
     type2str_[type] = str;
 }
 
@@ -962,7 +942,7 @@ void CCodeGen::insert(const Def* def, std::string str) {
     def2str_[def] = str;
 }
 
-bool CCodeGen::is_texture_type(const Type* type) {
+bool CCodeGen::is_texture_type(const Def* type) {
     if (auto ptr = type->isa<PtrType>()) {
         if (ptr->addr_space()==AddrSpace::Texture) {
             assert(lang_==Lang::CUDA && "Textures currently only supported in CUDA");
