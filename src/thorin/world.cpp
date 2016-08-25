@@ -389,10 +389,10 @@ const Def* World::arithop_minus(const Def* def, const Location& loc) {
  */
 
 const Def* World::cmp(CmpTag tag, const Def* a, const Def* b, const Location& loc, const std::string& name) {
-    CmpTag oldtag = tag;
+    auto oldtag = tag;
     switch (tag) {
-        case Cmp_gt:  tag = Cmp_lt; break;
-        case Cmp_ge:  tag = Cmp_le; break;
+        case Cmp_gt: tag = Cmp_lt; break;
+        case Cmp_ge: tag = Cmp_le; break;
         default: break;
     }
 
@@ -401,8 +401,8 @@ const Def* World::cmp(CmpTag tag, const Def* a, const Def* b, const Location& lo
 
     auto llit = a->isa<PrimLit>();
     auto rlit = b->isa<PrimLit>();
-    auto  lvec = a->isa<Vector>();
-    auto  rvec = b->isa<Vector>();
+    auto lvec = a->isa<Vector>();
+    auto rvec = b->isa<Vector>();
 
     if (lvec && rvec) {
         size_t num = lvec->type()->as<PrimType>()->length();
@@ -417,7 +417,6 @@ const Def* World::cmp(CmpTag tag, const Def* a, const Def* b, const Location& lo
         Box r = rlit->value();
         PrimTypeTag type = llit->primtype_tag();
 
-        // TODO unordered
         switch (tag) {
             case Cmp_eq:
                 switch (type) {
@@ -446,9 +445,9 @@ const Def* World::cmp(CmpTag tag, const Def* a, const Def* b, const Location& lo
     if (a == b) {
         switch (tag) {
             case Cmp_lt:
-            case Cmp_ne:  return zero(type_bool(), loc);
+            case Cmp_ne: return zero(type_bool(), loc);
             case Cmp_le:
-            case Cmp_eq:  return one(type_bool(), loc);
+            case Cmp_eq: return one(type_bool(), loc);
             default: break;
         }
     }
