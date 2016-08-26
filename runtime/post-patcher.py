@@ -88,6 +88,19 @@ nvvm_defs = {
     ret <4 x float> %9
 }
 """,
+  "ldg4_u32" : """define <4 x u32> @ldg4_u32(<4 x u32>* %addr) {
+    %1 = call {u32, u32, u32, u32} asm "ld.global.nc.v4.f32 {$0, $1, $2, $3}, [$4];", "=r,=r,=r,=r, l" (<4 x u32>* %addr)
+    %2 = extractvalue {u32, u32, u32, u32} %1, 0
+    %3 = extractvalue {u32, u32, u32, u32} %1, 1
+    %4 = extractvalue {u32, u32, u32, u32} %1, 2
+    %5 = extractvalue {u32, u32, u32, u32} %1, 3
+    %6 = insertelement <4 x u32> undef, u32 %2, i32 0
+    %7 = insertelement <4 x u32> %6, u32 %3, i32 1
+    %8 = insertelement <4 x u32> %7, u32 %4, i32 2
+    %9 = insertelement <4 x u32> %8, u32 %5, i32 3
+    ret <4 x u32> %9
+}
+""",
   "ldg4_i32" : """define <4 x i32> @ldg4_i32(<4 x i32>* %addr) {
     %1 = call {i32, i32, i32, i32} asm "ld.global.nc.v4.s32 {$0, $1, $2, $3}, [$4];", "=r,=r,=r,=r, l" (<4 x i32>* %addr)
     %2 = extractvalue {i32, i32, i32, i32} %1, 0
@@ -126,6 +139,15 @@ nvvm_defs = {
         "{ .reg .pred %p1;
             setp.ne.u32 %p1, $1, 0;
             vote.ballot.b32 $0, %p1;
+        }", "=r, r" (i32 %a)
+    ret i32 %1
+}
+""",
+  "__all" : """define i32 @all(i32 %a) {
+    %1 = call i32 asm
+        "{ .reg .pred %p1;
+            setp.ne.u32 %p1, $1, 0;
+            vote.all.pred $0, %p1;
         }", "=r, r" (i32 %a)
     ret i32 %1
 }
@@ -200,6 +222,26 @@ nvvm_defs = {
     %1 = call i32 asm sideeffect "bfe.u32 $0, $1, $2, $3;", "=r, r, r, r" (i32 %a, i32 %b, i32 %c)
     ret i32 %1
 }
+""",
+  "lane_mask_ge" : """define i32 @lane_mask_ge() {
+    %1 = call i32 asm sideeffect "mov.u32 $0, %lanemask_ge;", "=r" ()
+    ret i32 %1
+}
+""",
+  "st2_cg_u32" : """define void @st2_cg_u32(<2 x u32>* %ptr, <2 x u32> %val) {
+    %1 = extractvalue {u32, u32} %val, 0
+    %2 = extractvalue {u32, u32} %val, 1
+    call void asm sideeffect "st.cg.v2.u32 [$0], {$1, $2};", "l, r, r" (<2 x u32>* %ptr, u32 %1, u32 %2)
+  }
+""",
+  "ld2_cg_u32" : """define <2 x u32> @ld2_cg_u32(<2 x u32>* %ptr) {
+    %1 = call {u32, u32} asm "ld.cg.v2.u32 {$0, $1}, [$2]", "=r, =r, l" (<2 x u32>* %ptr)
+    %2 = extractvalue {u32, u32} %1, 0
+    %3 = extractvalue {u32, u32} %1, 1
+    %4 = insertelement <2 x u32> undef, u32 %2, i32 0
+    %5 = insertelement <2 x u32> %4, u32 %3, i32 1
+    ret <2 x u32> %5
+  }
 """
 }
 

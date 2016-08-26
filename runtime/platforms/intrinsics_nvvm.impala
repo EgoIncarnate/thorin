@@ -388,8 +388,10 @@ extern "C" {
     fn ldg_f32(&[1]f32) -> f32;
     fn ldg_i32(&[1]i32) -> i32;
     fn ldg4_f32(&simd[f32 * 4]) -> simd[f32 * 4];
+    fn ldg4_u32(&simd[u32 * 4]) -> simd[u32 * 4];
     fn ldg4_i32(&simd[i32 * 4]) -> simd[i32 * 4];
     fn ballot(i32) -> i32;
+    fn __all(i32) -> i32;
     fn shfldown(a: f32, b: i32, c: i32) -> f32;
     fn shflup(a: f32, b: i32, c: i32) -> f32;
     fn shflidx(a: f32, b: i32, c: i32) -> f32;
@@ -400,6 +402,23 @@ extern "C" {
     fn lane_id() -> i32;
     fn clock() -> i64;
     fn bfe(a: i32, b: i32, c: i32) -> i32;
+    fn lane_mask_ge() -> i32;
+    fn st2_cg_u32(&simd[u32 * 2], simd[u32 * 2]) -> ();
+    fn ld2_cg_u32(&simd[u32 * 2]) -> simd[u32 * 2];
+}
+
+// count leading zeros
+fn clz(i: i32) -> i32 {
+    nvvm_clz_i(i)
+}
+
+// bit reverse
+fn brev(i: i32) -> i32 {
+    nvvm_brev32(i)
+}
+
+fn all(cond: bool) -> bool {
+    __all(cond as i32) as bool
 }
 
 fn popcount(i: i32) -> i32 { nvvm_popc_i(i) }
