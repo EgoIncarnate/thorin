@@ -17,9 +17,9 @@
 #endif
 
 #ifdef ENABLE_TBB
-#include "tbb/tbb.h"
-#include "tbb/parallel_for.h"
-#include "tbb/task_scheduler_init.h"
+#include <tbb/tbb.h>
+#include <tbb/parallel_for.h>
+#include <tbb/task_scheduler_init.h>
 #else
 #include <thread>
 #endif
@@ -188,15 +188,23 @@ long long thorin_get_kernel_time() {
     return thorin_kernel_time;
 }
 
-void thorin_print_char(char c)                { std::cout << c; }
-void thorin_print_int(int i)                  { std::cout << i; }
+int32_t thorin_isinff(float x)    { return std::isinf(x); }
+int32_t thorin_isnanf(float x)    { return std::isnan(x); }
+int32_t thorin_isfinitef(float x) { return std::isfinite(x); }
+int32_t thorin_isinf(double x)    { return std::isinf(x); }
+int32_t thorin_isnan(double x)    { return std::isnan(x); }
+int32_t thorin_isfinite(double x) { return std::isfinite(x); }
+
+void thorin_print_char(char c)      { std::cout << c; }
+void thorin_print_short(int16_t s)  { std::cout << s; }
+void thorin_print_int(int32_t i)    { std::cout << i; }
 void thorin_print_uint(unsigned int i)        { std::cout << i; }
 void thorin_print_uint_as_hex(unsigned int i) { std::cout << std::hex << i << std::dec; }
-void thorin_print_long(long long l)           { std::cout << l; }
+void thorin_print_long(int64_t l)   { std::cout << l; }
 void thorin_print_ulong(unsigned long long l) { std::cout << l; }
-void thorin_print_float(float f)              { std::cout << f; }
-void thorin_print_double(double d)            { std::cout << d; }
-void thorin_print_string(char* s)             { std::cout << s; }
+void thorin_print_float(float f)    { std::cout << f; }
+void thorin_print_double(double d)  { std::cout << d; }
+void thorin_print_string(char* s)   { std::cout << s; }
 
 #if defined(__APPLE__) && defined(__clang__) || defined(_MSC_VER)
 #pragma message("Runtime random function is not thread-safe")
