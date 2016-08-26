@@ -40,7 +40,7 @@ void CudaPlatform::checkNvvmErrors(nvvmResult err, const char* name, const char*
     }
 }
 
-#if CUDA_VERSION >= 7000
+#ifdef CUDA_NVRTC
 void CudaPlatform::checkNvrtcErrors(nvrtcResult err, const char* name, const char* file, const int line) {
     if (NVRTC_SUCCESS != err) {
         ELOG("NVRTC API function % (%) [file %, line %]: %", name, err, file, line, nvrtcGetErrorString(err));
@@ -70,7 +70,7 @@ CudaPlatform::CudaPlatform(Runtime* runtime)
     checkErrNvvm(errNvvm, "nvvmVersion()");
 
     ILOG("CUDA Driver Version %.%", driver_version/1000, (driver_version%100)/10);
-    #if CUDA_VERSION >= 7000
+    #ifdef CUDA_NVRTC
     int nvrtc_major = 0, nvrtc_minor = 0;
     nvrtcResult errNvrtc = nvrtcVersion(&nvrtc_major, &nvrtc_minor);
     checkErrNvrtc(errNvrtc, "nvrtcVersion()");
@@ -244,6 +244,18 @@ void CudaPlatform::load_kernel(device_id dev, const char* file, const char* name
             ELOG("Function '%' is not present in '%'", name, file);
         func_map.emplace(name, func);
         devices_[dev].kernel = func;
+        int regs, cmem, lmem, smem, threads;
+        err = cuFuncGetAttribute(&regs, CU_FUNC_ATTRIBUTE_NUM_REGS, func);
+        checkErrDrv(err, "cuFuncGetAttribute()");
+        err = cuFuncGetAttribute(&smem, CU_FUNC_ATTRIBUTE_SHARED_SIZE_BYTES, func);
+        checkErrDrv(err, "cuFuncGetAttribute()");
+        err = cuFuncGetAttribute(&cmem, CU_FUNC_ATTRIBUTE_CONST_SIZE_BYTES, func);
+        checkErrDrv(err, "cuFuncGetAttribute()");
+        err = cuFuncGetAttribute(&lmem, CU_FUNC_ATTRIBUTE_LOCAL_SIZE_BYTES, func);
+        checkErrDrv(err, "cuFuncGetAttribute()");
+        err = cuFuncGetAttribute(&threads, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, func);
+        checkErrDrv(err, "cuFuncGetAttribute()");
+        ILOG("Function '%' using % registers, % | % | % bytes shared | constant | local memory allowing up to % threads per block", name, regs, smem, cmem, lmem, threads);
     } else {
         devices_[dev].kernel = func_it->second;
     }
@@ -355,6 +367,9 @@ void CudaPlatform::compile_nvvm(device_id dev, const char* file_name, CUjit_targ
         case CU_TARGET_COMPUTE_50:
         #if CUDA_VERSION >= 7000
         case CU_TARGET_COMPUTE_52:
+        #ifdef CU_TARGET_COMPUTE_53
+        case CU_TARGET_COMPUTE_53:
+        #endif
         #endif
             libdevice_file_name = "libdevice.compute_30.10.bc"; break;
         case CU_TARGET_COMPUTE_35:
@@ -417,7 +432,7 @@ void CudaPlatform::compile_nvvm(device_id dev, const char* file_name, CUjit_targ
     create_module(dev, file_name, target_cc, ptx.c_str());
 }
 
-#if CUDA_VERSION >= 7000
+#ifdef CUDA_NVRTC
 void CudaPlatform::compile_cuda(device_id dev, const char* file_name, CUjit_target target_cc) {
     std::ifstream src_file(std::string(KERNEL_DIR) + file_name);
     if (!src_file.is_open())
