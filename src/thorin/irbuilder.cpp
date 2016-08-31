@@ -15,7 +15,7 @@ Value Value::create_val(IRBuilder& builder, const Def* val) {
     return result;
 }
 
-Value Value::create_mut(IRBuilder& builder, size_t handle, const Type* type, const char* name) {
+Value Value::create_mut(IRBuilder& builder, size_t handle, const Def* type, const char* name) {
     Value result;
     result.tag_     = MutableValRef;
     result.builder_ = &builder;
@@ -156,7 +156,7 @@ void IRBuilder::branch(const Def* cond, JumpTarget& t, JumpTarget& f, const Loca
     }
 }
 
-const Def* IRBuilder::call(const Def* to, Defs args, const Type* ret_type, const Location& loc) {
+const Def* IRBuilder::call(const Def* to, Defs args, const Def* ret_type, const Location& loc) {
     if (is_reachable()) {
         auto p = cur_bb->call(to, args, ret_type, loc);
         cur_bb = p.first;
@@ -174,7 +174,7 @@ const Def* IRBuilder::create_frame(const Location& loc) {
     return world().extract(enter, 1, loc);
 }
 
-const Def* IRBuilder::alloc(const Type* type, const Def* extra, const Location& loc, const std::string& name) {
+const Def* IRBuilder::alloc(const Def* type, const Def* extra, const Location& loc, const std::string& name) {
     if (!extra)
         extra = world().literal_qu64(0, loc);
     auto alloc = world().alloc(type, get_mem(), extra, loc, name);

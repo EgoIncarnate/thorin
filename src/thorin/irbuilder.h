@@ -50,7 +50,7 @@ public:
     }
 
     Value static create_val(IRBuilder&, const Def* val);
-    Value static create_mut(IRBuilder&, size_t handle, const Type* type, const char* name);
+    Value static create_mut(IRBuilder&, size_t handle, const Def* type, const char* name);
     Value static create_ptr(IRBuilder&, const Def* ptr);
     Value static create_agg(Value value, const Def* offset);
 
@@ -79,7 +79,7 @@ private:
     Tag tag_;
     IRBuilder* builder_;
     size_t handle_;
-    const Type* type_;
+    const Def* type_;
     const char* name_;
     const Def* def_;
     std::unique_ptr<Value> value_;
@@ -131,7 +131,7 @@ public:
     bool is_reachable() const { return cur_bb != nullptr; }
     void set_unreachable() { cur_bb = nullptr; }
     const Def* create_frame(const Location& loc);
-    const Def* alloc(const Type* type, const Def* extra, const Location& loc, const std::string& name = "");
+    const Def* alloc(const Def* type, const Def* extra, const Location& loc, const std::string& name = "");
     const Def* load(const Def* ptr, const Location& loc, const std::string& name = "");
     const Def* extract(const Def* agg, const Def* index, const Location& loc, const std::string& name = "");
     const Def* extract(const Def* agg, u32 index, const Location& loc, const std::string& name = "");
@@ -141,7 +141,7 @@ public:
     Continuation* enter_unsealed(JumpTarget& jt) { return cur_bb = jt.enter_unsealed(world_); }
     void jump(JumpTarget& jt, const Location& loc);
     void branch(const Def* cond, JumpTarget& t, JumpTarget& f, const Location& loc);
-    const Def* call(const Def* to, Defs args, const Type* ret_type, const Location& loc);
+    const Def* call(const Def* to, Defs args, const Def* ret_type, const Location& loc);
     const Def* get_mem();
     void set_mem(const Def* def);
     Continuation* continuation(const FnType* fn, const Location& loc, CC cc = CC::C, Intrinsic intrinsic = Intrinsic::None, const std::string& name = "");
