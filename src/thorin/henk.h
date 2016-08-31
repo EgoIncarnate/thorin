@@ -148,7 +148,8 @@ public:
     void replace(const Def*) const;
 
     bool is_nominal() const { return nominal_; }              ///< A nominal @p Def is always different from each other @p Def.
-    bool is_known()   const { return known_; }                ///< Deos this @p Def depend on any @p Unknown%s?
+    bool is_structural() const { return !nominal_; }          ///< A structural @p Def is always unified with a syntactically equivalent @p Def.
+    bool is_known()   const { return known_; }                ///< Does this @p Def depend on any @p Unknown%s?
     bool is_monomorphic() const { return monomorphic_; }      ///< Does this @p Def not depend on any @p Var%s?.
     bool is_polymorphic() const { return !is_monomorphic(); } ///< Does this @p Def depend on any @p Var%s?.
     int order() const { return order_; }
