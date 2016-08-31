@@ -2,81 +2,68 @@
 
 namespace thorin {
 
-const Type* import(Def2Def& old2new, World& to, const Type* otype) {
-    if (auto ntype = find(old2new, otype)) {
+#if 0
+
+const Def* import(Def2Def& old2new, World& to, const Def* odef) {
+    if (auto ntype = find(old2new, odef)) {
         assert(&ntype->world() == &to);
         return ntype;
     }
 
-    size_t size = otype->num_ops();
-    Array<const Type*> nops(size);
-    for (size_t i = 0; i != size; ++i)
-        nops[i] = import(old2new, to, otype->op(i));
+    auto ntype = odef->type() ? import(old2new, to, odef->type()) : nullptr;
+    size_t size = odef->num_ops();
 
-    auto ntype = old2new[otype] = otype->rebuild(to, nops);
-    assert(&ntype->world() == &to);
-
-    return ntype;
-}
-
-const Def* import(Def2Def& type_old2new, Def2Def& def_old2new, World& to, const Def* odef) {
-    if (auto ndef = find(def_old2new, odef)) {
-        assert(&ndef->world() == &to);
-        return ndef;
-    }
-
-    auto ntype = import(type_old2new, to, odef->type());
-
-    if (auto oparam = odef->isa<Param>()) {
-        import(type_old2new, def_old2new, to, oparam->continuation())->as_continuation();
-        auto nparam = find(def_old2new, oparam);
-        assert(nparam && &nparam->world() == &to);
-        return nparam;
-    }
-
-    Continuation* ncontinuation = nullptr;
-    if (auto ocontinuation = odef->isa_continuation()) { // create stub in new world
-        // TODO maybe we want to deal with intrinsics in a more streamlined way
-        if (ocontinuation == ocontinuation->world().branch())
-            return def_old2new[ocontinuation] = to.branch();
-        if (ocontinuation == ocontinuation->world().end_scope())
-            return def_old2new[ocontinuation] = to.end_scope();
-        auto npi = import(type_old2new, to, ocontinuation->type())->as<FnType>();
-        ncontinuation = to.continuation(npi, ocontinuation->loc(), ocontinuation->cc(), ocontinuation->intrinsic(), ocontinuation->name);
-        for (size_t i = 0, e = ocontinuation->num_params(); i != e; ++i) {
-            ncontinuation->param(i)->name = ocontinuation->param(i)->name;
-            def_old2new[ocontinuation->param(i)] = ncontinuation->param(i);
+    if (odef->is_nominal()) {
+        if (auto oparam = odef->isa<Param>()) {
+            import(old2new, to, oparam->continuation())->as_continuation();
+            auto nparam = find(old2new, oparam);
+            assert(nparam && &nparam->world() == &to);
+            return nparam;
         }
 
-        def_old2new[ocontinuation] = ncontinuation;
+        Continuation* ncontinuation = nullptr;
+        if (auto ocontinuation = odef->isa_continuation()) { // create stub in new world
+            // TODO maybe we want to deal with intrinsics in a more streamlined way
+            if (ocontinuation == ocontinuation->world().branch())
+                return old2new[ocontinuation] = to.branch();
+            if (ocontinuation == ocontinuation->world().end_scope())
+                return old2new[ocontinuation] = to.end_scope();
+            auto npi = import(old2new, to, ocontinuation->type())->as<FnType>();
+            ncontinuation = to.continuation(npi, ocontinuation->loc(), ocontinuation->cc(), ocontinuation->intrinsic(), ocontinuation->name());
+            for (size_t i = 0, e = ocontinuation->num_params(); i != e; ++i) {
+                ncontinuation->param(i)->name_ = ocontinuation->param(i)->name();
+                old2new[ocontinuation->param(i)] = ncontinuation->param(i);
+            }
+
+            old2new[ocontinuation] = ncontinuation;
+        }
+
+        auto ocontinuation = odef->as_continuation();
+        assert(ncontinuation && &ncontinuation->world() == &to);
+        if (size > 0)
+            ncontinuation->jump(nops.front(), nops.skip_front(), ocontinuation->jump_loc());
+        return ncontinuation;
+    } else {
+        Array<const Def*> nops(size);
+        for (size_t i = 0; i != size; ++i) {
+            nops[i] = import(old2new, to, odef->op(i));
+            assert(&nops[i]->world() == &to);
+        }
+
+        if (auto oprimop = odef->isa<PrimOp>())
+            return old2new[oprimop] = oprimop->rebuild(to, nops, ntype);
+
+        if (auto otype = odef->isa<Type>())
+            return old2new[otype] = otype->rebuild(to, nops);
+
+        return ntype;
     }
-
-    size_t size = odef->num_ops();
-    Array<const Def*> nops(size);
-    for (size_t i = 0; i != size; ++i) {
-        nops[i] = import(type_old2new, def_old2new, to, odef->op(i));
-        assert(&nops[i]->world() == &to);
-    }
-
-    if (auto oprimop = odef->isa<PrimOp>())
-        return def_old2new[oprimop] = oprimop->rebuild(to, nops, ntype);
-
-    auto ocontinuation = odef->as_continuation();
-    assert(ncontinuation && &ncontinuation->world() == &to);
-    if (size > 0)
-        ncontinuation->jump(nops.front(), nops.skip_front(), ocontinuation->jump_loc());
-    return ncontinuation;
-}
-
-const Type* import(World& to, const Type* otype) {
-    Def2Def old2new;
-    return import(old2new, to, otype);
 }
 
 const Def* import(World& to, const Def* odef) {
-    Def2Def def_old2new;
-    Def2Def type_old2new;
-    return import(type_old2new, def_old2new, to, odef);
+    Def2Def old2new;
+    return import(old2new, to, odef);
 }
+#endif
 
 }

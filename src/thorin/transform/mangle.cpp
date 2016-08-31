@@ -37,14 +37,14 @@ Mangler::Mangler(const Scope& scope, Defs args, Defs lift)
 
 Continuation* Mangler::mangle() {
     // create new_entry - but first collect and specialize all param types
-    std::vector<const Type*> param_types;
+    std::vector<const Def*> param_types;
     for (size_t i = 0, e = old_entry()->num_params(); i != e; ++i) {
         if (args_[i] == nullptr)
             param_types.emplace_back(old_entry()->param(i)->type()); // TODO reduce
     }
 
     auto fn_type = world().fn_type(param_types);
-    new_entry_ = world().continuation(fn_type, old_entry()->loc(), old_entry()->name);
+    new_entry_ = world().continuation(fn_type, old_entry()->loc(), old_entry()->name());
 
     // map value params
     def2def_[old_entry()] = old_entry();
@@ -55,7 +55,7 @@ Continuation* Mangler::mangle() {
         else {
             auto new_param = new_entry()->param(j++);
             def2def_[old_param] = new_param;
-            new_param->name = old_param->name;
+            new_param->name_ = old_param->name();
         }
     }
 
@@ -69,7 +69,7 @@ Continuation* Mangler::mangle() {
 Continuation* Mangler::mangle_head(Continuation* old_continuation) {
     assert(!def2def_.contains(old_continuation));
     assert(!old_continuation->empty());
-    Continuation* new_continuation = old_continuation->stub(type2type_, old_continuation->name);
+    Continuation* new_continuation = old_continuation->stub(def2def_, old_continuation->name());
     def2def_[old_continuation] = new_continuation;
 
     for (size_t i = 0, e = old_continuation->num_params(); i != e; ++i)
