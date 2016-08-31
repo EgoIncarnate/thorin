@@ -6,21 +6,15 @@
 #error "please define the type table type HENK_TABLE_TYPE"
 #endif
 
-#ifndef HENK_STRUCT_EXTRA_TYPE
-#error "please define the type to unify StructTypes HENK_STRUCT_EXTRA_TYPE"
-#endif
-
-#ifndef HENK_STRUCT_EXTRA_NAME
-#error "please define the name for HENK_STRUCT_EXTRA_TYPE: HENK_STRUCT_EXTRA_NAME"
-#endif
-
 #define HENK_UNDERSCORE(N) N##_
 #define HENK_TABLE_NAME_          HENK_UNDERSCORE(HENK_TABLE_NAME)
-#define HENK_STRUCT_EXTRA_NAME_ HENK_UNDERSCORE(HENK_STRUCT_EXTRA_NAME)
 
 //------------------------------------------------------------------------------
 
+#ifdef HENK_CONTINUATION
 class Continuation;
+#endif
+
 class Def;
 
 /**
@@ -52,7 +46,7 @@ struct UseHash {
     inline uint64_t operator()(Use use) const;
 };
 
-typedef HashSet<Use, UseHash> Uses;
+typedef thorin::HashSet<Use, UseHash> Uses;
 
 class Var;
 class HENK_TABLE_TYPE;
@@ -83,7 +77,7 @@ protected:
     Def& operator=(const Def&) = delete;
 
     /// Use for nominal @p Def%s.
-    Def(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
+    Def(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const thorin::Location& loc, const std::string& name)
         : HENK_TABLE_NAME_(table)
         , tag_(tag)
         , ops_(num_ops)
@@ -93,7 +87,7 @@ protected:
     {}
 
     /// Use for structural @p Def%s.
-    Def(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
+    Def(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const thorin::Location& loc, const std::string& name)
         : HENK_TABLE_NAME_(table)
         , tag_(tag)
         , ops_(ops.size())
@@ -107,7 +101,6 @@ protected:
         }
     }
 
-    void set(size_t i, const Def*);
     void clear_type() { type_ = nullptr; }
     void set_type(const Def* type) { type_ = type; }
     void unregister_use(size_t i) const;
@@ -142,9 +135,13 @@ public:
     const Def* type() const { return type_; }
     const std::string& name() const { return name_; }
     std::string unique_name() const;
+    void set(Defs);
+    void set(size_t i, const Def*);
     void unset(size_t i);
+#ifdef HENK_CONTINUATION
     Continuation* as_continuation() const;
     Continuation* isa_continuation() const;
+#endif
     void replace(const Def*) const;
 
     bool is_nominal() const { return nominal_; }              ///< A nominal @p Def is always different from each other @p Def.
@@ -204,42 +201,42 @@ protected:
 };
 
 uint64_t UseHash::operator()(Use use) const {
-    return hash_combine(hash_begin(use->gid()), use.index());
+    return thorin::hash_combine(thorin::hash_begin(use->gid()), use.index());
 }
 
 class Abs : public Def {
 protected:
-    Abs(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
+    Abs(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const thorin::Location& loc, const std::string& name)
         : Def(table, tag, type, num_ops, loc, name)
     {}
-    Abs(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
+    Abs(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const thorin::Location& loc, const std::string& name)
         : Def(table, tag, type, ops, loc, name)
     {}
 };
 
 class Connective : public Abs {
 protected:
-    Connective(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
+    Connective(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const thorin::Location& loc, const std::string& name)
         : Abs(table, tag, type, num_ops, loc, name)
     {}
-    Connective(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
+    Connective(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const thorin::Location& loc, const std::string& name)
         : Abs(table, tag, type, ops, loc, name)
     {}
 };
 
 class Quantifier : public Abs {
 protected:
-    Quantifier(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const Location& loc, const std::string& name)
+    Quantifier(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const thorin::Location& loc, const std::string& name)
         : Abs(table, tag, type, num_ops, loc, name)
     {}
-    Quantifier(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const Location& loc, const std::string& name)
+    Quantifier(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const thorin::Location& loc, const std::string& name)
         : Abs(table, tag, type, ops, loc, name)
     {}
 };
 
 class Lambda : public Connective {
 private:
-    Lambda(HENK_TABLE_TYPE& table, const Def* domain, const Def* body, const Location& loc, const std::string& name);
+    Lambda(HENK_TABLE_TYPE& table, const Def* domain, const Def* body, const thorin::Location& loc, const std::string& name);
 
 public:
     const Def* domain() const { return op(0); }
@@ -255,7 +252,7 @@ private:
 
 class Pi : public Quantifier {
 private:
-    Pi(HENK_TABLE_TYPE& table, const Def* domain, const Def* body, const Location& loc, const std::string& name);
+    Pi(HENK_TABLE_TYPE& table, const Def* domain, const Def* body, const thorin::Location& loc, const std::string& name);
 
 public:
     const Def* domain() const { return op(0); }
@@ -271,13 +268,13 @@ private:
 
 class Tuple : public Connective {
 private:
-    Tuple(HENK_TABLE_TYPE& table, const Def* type, Defs ops, const Location& loc, const std::string& name)
+    Tuple(HENK_TABLE_TYPE& table, const Def* type, Defs ops, const thorin::Location& loc, const std::string& name)
         : Connective(table, Node_Tuple, type, ops, loc, name)
     {}
 
-    Tuple(HENK_TABLE_TYPE& table, Defs ops, const Location& loc, const std::string& name);
+    Tuple(HENK_TABLE_TYPE& table, Defs ops, const thorin::Location& loc, const std::string& name);
 
-    static const Def* infer_type(HENK_TABLE_TYPE& table, Defs ops, const Location& loc, const std::string& name);
+    static const Def* infer_type(HENK_TABLE_TYPE& table, Defs ops, const thorin::Location& loc, const std::string& name);
 
     virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
     virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const override;
@@ -290,14 +287,14 @@ public:
 
 class Sigma : public Quantifier {
 private:
-    Sigma(HENK_TABLE_TYPE& table, size_t num_ops, const Location& loc, const std::string& name)
+    Sigma(HENK_TABLE_TYPE& table, size_t num_ops, const thorin::Location& loc, const std::string& name)
         : Quantifier(table, Node_Sigma, nullptr /*TODO*/, num_ops, loc, name)
     {}
-    Sigma(HENK_TABLE_TYPE& table, Defs ops, const Location& loc, const std::string& name)
+    Sigma(HENK_TABLE_TYPE& table, Defs ops, const thorin::Location& loc, const std::string& name)
         : Quantifier(table, Node_Sigma, nullptr /*TODO*/, ops, loc, name)
     {}
 
-    static const Def* infer_type(HENK_TABLE_TYPE& table, Defs ops, const Location& loc, const std::string& name);
+    static const Def* infer_type(HENK_TABLE_TYPE& table, Defs ops, const thorin::Location& loc, const std::string& name);
 
     virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
     virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const override;
@@ -311,7 +308,7 @@ public:
 class Star : public Def {
 private:
     Star(HENK_TABLE_TYPE& table)
-        : Def(table, Node_Star, nullptr, {}, Location(), "type")
+        : Def(table, Node_Star, nullptr, {}, thorin::Location(), "type")
     {}
 
 public:
@@ -326,7 +323,7 @@ private:
 
 class Var : public Def {
 private:
-    Var(HENK_TABLE_TYPE& table, const Def* type, int depth, const Location& loc, const std::string& name)
+    Var(HENK_TABLE_TYPE& table, const Def* type, int depth, const thorin::Location& loc, const std::string& name)
         : Def(table, Node_Var, type, {}, loc, name)
         , depth_(depth)
     {
@@ -350,12 +347,12 @@ private:
 
 class App : public Def {
 private:
-    App(HENK_TABLE_TYPE& table, const Def* callee, Defs args, const Location& loc, const std::string& name)
+    App(HENK_TABLE_TYPE& table, const Def* callee, Defs args, const thorin::Location& loc, const std::string& name)
         : Def(table, Node_App, infer_type(table, callee, args, loc, name), concat(callee, args), loc, name)
     {}
 
-    static const Def* infer_type(HENK_TABLE_TYPE& table, const Def* callee, const Def* arg, const Location& loc, const std::string& name);
-    static const Def* infer_type(HENK_TABLE_TYPE& table, const Def* callee, Defs arg, const Location& loc, const std::string& name);
+    static const Def* infer_type(HENK_TABLE_TYPE& table, const Def* callee, const Def* arg, const thorin::Location& loc, const std::string& name);
+    static const Def* infer_type(HENK_TABLE_TYPE& table, const Def* callee, Defs arg, const thorin::Location& loc, const std::string& name);
 
 public:
     const Def* callee() const { return Def::op(0); }
@@ -372,7 +369,7 @@ private:
 class Error : public Def {
 private:
     Error(HENK_TABLE_TYPE& table, const Def* type)
-        : Def(table, Node_Error, type, {}, Location(), "<error>")
+        : Def(table, Node_Error, type, {}, thorin::Location(), "<error>")
     {}
 
 public:
@@ -454,7 +451,7 @@ public:
     }
 
 private:
-    HashSet<Tracker*>& trackers(const Def* def);
+    thorin::HashSet<Tracker*>& trackers(const Def* def);
     void verify() { assert(!def_ || trackers(def_).contains(this)); }
     void put(Tracker& other) {
         auto p = trackers(def_).insert(&other);
@@ -494,20 +491,20 @@ public:
     virtual ~TableBase() { for (auto def : defs_) delete def; }
 
     const Star* star();
-    const Var* var(const Def* type, int depth, const Location& loc, const std::string& name = "") { return unify(new Var(HENK_TABLE_NAME(), type, depth, loc, name)); }
-    const Lambda* lambda(const Def* domain, const Def* body, const Location& loc, const std::string& name = "") { return unify(new Lambda(HENK_TABLE_NAME(), domain, body, loc, name)); }
-    const Pi*     pi    (const Def* domain, const Def* body, const Location& loc, const std::string& name = "") { return unify(new Pi    (HENK_TABLE_NAME(), domain, body, loc, name)); }
-    const Def* app(const Def* callee, const Def* arg, const Location& loc, const std::string& name = "");
-    const Def* app(const Def* callee, Defs args, const Location& loc, const std::string& name = "");
-    const Tuple* tuple(const Def* type, Defs ops, const Location& loc, const std::string& name = "") { return unify(new Tuple(HENK_TABLE_NAME(), type, ops, loc, name)); }
-    const Tuple* tuple(Defs ops, const Location& loc, const std::string& name = "") {
+    const Var* var(const Def* type, int depth, const thorin::Location& loc, const std::string& name = "") { return unify(new Var(HENK_TABLE_NAME(), type, depth, loc, name)); }
+    const Lambda* lambda(const Def* domain, const Def* body, const thorin::Location& loc = thorin::Location(), const std::string& name = "") { return unify(new Lambda(HENK_TABLE_NAME(), domain, body, loc, name)); }
+    const Pi*     pi    (const Def* domain, const Def* body, const thorin::Location& loc = thorin::Location(), const std::string& name = "") { return unify(new Pi    (HENK_TABLE_NAME(), domain, body, loc, name)); }
+    const Def* app(const Def* callee, const Def* arg, const thorin::Location& loc, const std::string& name = "");
+    const Def* app(const Def* callee, Defs args, const thorin::Location& loc, const std::string& name = "");
+    const Tuple* tuple(const Def* type, Defs ops, const thorin::Location& loc, const std::string& name = "") { return unify(new Tuple(HENK_TABLE_NAME(), type, ops, loc, name)); }
+    const Tuple* tuple(Defs ops, const thorin::Location& loc, const std::string& name = "") {
         Array<const Def*> types(ops.size());
         for (size_t i = 0, e = types.size(); i != e; ++i)
             types[i] = ops[i]->type();
         return tuple(sigma(types, loc, name), ops, loc, name);
     }
-    const Sigma* sigma(Defs ops, const Location& loc = Location(), const std::string& name = "") { return unify(new Sigma(HENK_TABLE_NAME(), ops, loc, name)); }
-    Sigma* sigma(size_t num_ops, const Location& loc = Location(), const std::string& name = "") { return insert(new Sigma(HENK_TABLE_NAME(), num_ops, loc, name)); }
+    const Sigma* sigma(Defs ops, const thorin::Location& loc = thorin::Location(), const std::string& name = "") { return unify(new Sigma(HENK_TABLE_NAME(), ops, loc, name)); }
+    Sigma* sigma(size_t num_ops, const thorin::Location& loc = thorin::Location(), const std::string& name = "") { return insert(new Sigma(HENK_TABLE_NAME(), num_ops, loc, name)); }
     const Error* error(const Def* type) { return unify(new Error(HENK_TABLE_NAME(), type)); }
     const Error* error() { return error(error(star())); }
 
@@ -532,7 +529,8 @@ protected:
 
 //------------------------------------------------------------------------------
 
-#undef HENK_STRUCT_EXTRA_NAME
-#undef HENK_STRUCT_EXTRA_TYPE
+#ifdef HENK_CONTINUATION
+#undef HENK_CONTINUATION
+#endif
 #undef HENK_TABLE_NAME
 #undef HENK_TABLE_TYPE

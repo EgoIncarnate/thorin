@@ -6,19 +6,17 @@
 #error "please define the type table type HENK_TABLE_TYPE"
 #endif
 
-#ifndef HENK_STRUCT_EXTRA_NAME
-#error "please define the name for HENK_STRUCT_EXTRA_TYPE: HENK_STRUCT_EXTRA_NAME"
-#endif
-
-#ifndef HENK_STRUCT_EXTRA_TYPE
-#error "please define the type to unify StructTypes HENK_STRUCT_EXTRA_TYPE"
-#endif
-
 size_t Def::gid_counter_ = 1;
 
 //------------------------------------------------------------------------------
 
 const Def* Def::op(size_t i) const { return i < num_ops() ? ops()[i] : HENK_TABLE_NAME().error(); }
+
+void Def::set(Defs defs) {
+    assert(defs.size() == num_ops());
+    for (size_t i = 0, e = defs.size(); i != e; ++i)
+        set(i, defs[i]);
+}
 
 void Def::set(size_t i, const Def* def) {
     assert(!op(i) && "already set");
@@ -221,17 +219,6 @@ const Def* App::vreduce(int depth, const Def* def, Def2Def& map) const {
 
 //------------------------------------------------------------------------------
 
-#if 0
-template<class T>
-const StructType* TableBase<T>::struct_type(HENK_STRUCT_EXTRA_TYPE HENK_STRUCT_EXTRA_NAME, size_t size) {
-    auto type = new StructType(HENK_TABLE_NAME(), HENK_STRUCT_EXTRA_NAME, size);
-    const auto& p = types_.insert(type);
-    assert_unused(p.second && "hash/equal broken");
-    type->hashed_ = true;
-    return type;
-}
-#endif
-
 template<class T>
 const Def* TableBase<T>::app(const Def* callee, const Def* arg, const Location& loc, const std::string& name) {
     if (auto sigma = arg->type()->isa<Sigma>()) {
@@ -244,7 +231,7 @@ const Def* TableBase<T>::app(const Def* callee, const Def* arg, const Location& 
 }
 
 template<class T>
-const Def* TableBase<T>::app(const Def* callee, Defs args, const Location& loc, const std::string& name) { 
+const Def* TableBase<T>::app(const Def* callee, Defs args, const Location& loc, const std::string& name) {
     if (args.size() == 1 && args.front()->type()->isa<Sigma>())
         return app(callee, args.front(), loc, name);
 
@@ -276,7 +263,5 @@ template class TableBase<HENK_TABLE_TYPE>;
 
 //------------------------------------------------------------------------------
 
-#undef HENK_STRUCT_EXTRA_NAME
-#undef HENK_STRUCT_EXTRA_TYPE
 #undef HENK_TABLE_NAME
 #undef HENK_TABLE_TYPE

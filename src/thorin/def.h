@@ -12,6 +12,7 @@
 
 namespace thorin {
 
+#define HENK_CONTINUATION
 #define HENK_STRUCT_EXTRA_NAME name
 #define HENK_STRUCT_EXTRA_TYPE const char*
 #define HENK_TABLE_NAME world
