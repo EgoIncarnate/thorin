@@ -78,22 +78,28 @@ protected:
 
     /// Use for nominal @p Def%s.
     Def(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const thorin::Location& loc, const std::string& name)
-        : HENK_TABLE_NAME_(table)
+        : HasLocation(loc)
+        , HENK_TABLE_NAME_(table)
         , tag_(tag)
+        , type_(type)
         , ops_(num_ops)
         , gid_(gid_counter_++)
-        , nominal_(true)
+        , is_nominal_(true)
         , is_outdated_(false)
+        , name_(name)
     {}
 
     /// Use for structural @p Def%s.
     Def(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const thorin::Location& loc, const std::string& name)
-        : HENK_TABLE_NAME_(table)
+        : HasLocation(loc)
+        , HENK_TABLE_NAME_(table)
         , tag_(tag)
+        , type_(type)
         , ops_(ops.size())
         , gid_(gid_counter_++)
-        , nominal_(false)
+        , is_nominal_(false)
         , is_outdated_(false)
+        , name_(name)
     {
         for (size_t i = 0, e = num_ops(); i != e; ++i) {
             if (auto op = ops[i])
@@ -144,8 +150,8 @@ public:
 #endif
     void replace(const Def*) const;
 
-    bool is_nominal() const { return nominal_; }              ///< A nominal @p Def is always different from each other @p Def.
-    bool is_structural() const { return !nominal_; }          ///< A structural @p Def is always unified with a syntactically equivalent @p Def.
+    bool is_nominal() const { return is_nominal_; }           ///< A nominal @p Def is always different from each other @p Def.
+    bool is_structural() const { return !is_nominal(); }      ///< A structural @p Def is always unified with a syntactically equivalent @p Def.
     bool is_known()   const { return known_; }                ///< Does this @p Def depend on any @p Unknown%s?
     bool is_monomorphic() const { return monomorphic_; }      ///< Does this @p Def not depend on any @p Var%s?.
     bool is_polymorphic() const { return !is_monomorphic(); } ///< Does this @p Def depend on any @p Var%s?.
@@ -181,18 +187,18 @@ private:
     std::vector<const Def*> ops_;
     mutable size_t gid_;
     static size_t gid_counter_;
-    mutable bool nominal_;
     mutable uint32_t candidate_ = 0; // HACK for scope analysis
     mutable Uses uses_;
 
-public:
-    mutable std::string name_;
-
 private:
     mutable uint32_t live_ = 0;
+    mutable bool is_nominal_;
 
 protected:
     mutable bool is_outdated_ : 1;
+
+public:
+    mutable std::string name_;
 
     template<class> friend class TableBase;
     friend class Cleaner;
