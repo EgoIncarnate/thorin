@@ -187,7 +187,6 @@ private:
     std::vector<const Def*> ops_;
     mutable size_t gid_;
     static size_t gid_counter_;
-    mutable uint32_t candidate_ = 0; // HACK for scope analysis
     mutable Uses uses_;
 
 private:
