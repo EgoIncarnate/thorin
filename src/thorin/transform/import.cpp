@@ -2,9 +2,7 @@
 
 namespace thorin {
 
-const Def* import(Def2Def& old2new, World& to, const Def* old_def);
-
-const Def* import(Def2Def& old2new, World& to, const Def* old_def) {
+const Def* import(World& to, Def2Def& old2new, const Def* old_def) {
     if (auto new_def = find(old2new, old_def)) {
         assert(&new_def->world() == &to);
         return new_def;
@@ -13,19 +11,19 @@ const Def* import(Def2Def& old2new, World& to, const Def* old_def) {
     auto get_new_ops = [&] () {
         Array<const Def*> result(old_def->num_ops());
         for (size_t i = 0; i != result.size(); ++i) {
-            result[i] = import(old2new, to, old_def->op(i));
+            result[i] = import(to, old2new, old_def->op(i));
             assert(&result[i]->world() == &to);
         }
         return result;
     };
 
-    auto new_type = old_def->type() ? import(old2new, to, old_def->type()) : nullptr;
+    auto new_type = old_def->type() ? import(to, old2new, old_def->type()) : nullptr;
 
     if (old_def->is_structural())
         return old2new[old_def] = old_def->rebuild(to, /*new_type, */get_new_ops());
 
     if (auto old_param = old_def->isa<Param>()) {
-        import(old2new, to, old_param->continuation());
+        import(to, old2new, old_param->continuation());
         auto new_param = find(old2new, old_param);
         assert(new_param && &new_param->world() == &to);
         return new_param;
@@ -45,6 +43,18 @@ const Def* import(Def2Def& old2new, World& to, const Def* old_def) {
         }
 
         old2new[old_continuation] = new_continuation;
+
+        if (old_continuation->is_external())
+            new_continuation->make_external();
+
+        if (old_continuation->num_ops() > 0 && old_continuation->callee() == old_continuation->world().branch()) {
+            auto cond = import(to, old2new, old_continuation->arg(0));
+            if (auto lit = cond->isa<PrimLit>()) {
+                auto callee = import(to, old2new, lit->value().get_bool() ? old_continuation->arg(1) : old_continuation->arg(2));
+                new_continuation->jump(callee, {}, old_continuation->jump_loc());
+                return new_continuation;
+            }
+        }
     }
 
     auto old_continuation = old_def->as_continuation();
@@ -58,7 +68,7 @@ const Def* import(Def2Def& old2new, World& to, const Def* old_def) {
 
 const Def* import(World& to, const Def* old_def) {
     Def2Def old2new;
-    return import(old2new, to, old_def);
+    return import(to, old2new, old_def);
 }
 
 }

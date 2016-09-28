@@ -6,8 +6,8 @@
 #error "please define the type table type HENK_TABLE_TYPE"
 #endif
 
-#define HENK_UNDERSCORE(N) N##_
-#define HENK_TABLE_NAME_          HENK_UNDERSCORE(HENK_TABLE_NAME)
+#define HENK_UNDERSCORE(N) THORIN_PASTER(N,_)
+#define HENK_TABLE_NAME_ HENK_UNDERSCORE(HENK_TABLE_NAME)
 
 //------------------------------------------------------------------------------
 
@@ -79,26 +79,24 @@ protected:
     /// Use for nominal @p Def%s.
     Def(HENK_TABLE_TYPE& table, int tag, const Def* type, size_t num_ops, const thorin::Location& loc, const std::string& name)
         : HasLocation(loc)
-        , HENK_TABLE_NAME_(table)
+        , HENK_TABLE_NAME_(&table)
         , tag_(tag)
         , type_(type)
         , ops_(num_ops)
         , gid_(gid_counter_++)
         , is_nominal_(true)
-        , is_outdated_(false)
         , name_(name)
     {}
 
     /// Use for structural @p Def%s.
     Def(HENK_TABLE_TYPE& table, int tag, const Def* type, Defs ops, const thorin::Location& loc, const std::string& name)
         : HasLocation(loc)
-        , HENK_TABLE_NAME_(table)
+        , HENK_TABLE_NAME_(&table)
         , tag_(tag)
         , type_(type)
         , ops_(ops.size())
         , gid_(gid_counter_++)
         , is_nominal_(false)
-        , is_outdated_(false)
         , name_(name)
     {
         for (size_t i = 0, e = num_ops(); i != e; ++i) {
@@ -130,7 +128,7 @@ public:
     }
 
     int tag() const { return tag_; }
-    HENK_TABLE_TYPE& HENK_TABLE_NAME() const { return HENK_TABLE_NAME_; }
+    HENK_TABLE_TYPE& HENK_TABLE_NAME() const { return *HENK_TABLE_NAME_; }
 
     Defs ops() const { return ops_; }
     const Def* op(size_t i) const;
@@ -159,8 +157,6 @@ public:
     size_t gid() const { return gid_; }
     uint64_t hash() const { return hash_ == 0 ? hash_ = vhash() : hash_; }
     virtual bool equal(const Def*) const;
-    bool is_outdated() const { return is_outdated_; }
-    virtual const Def* rebuild(Def2Def&) const { return this; }
 
     const Def* reduce(int, const Def*, Def2Def&) const;
     const Def* rebuild(HENK_TABLE_TYPE& to, Defs ops) const;
@@ -181,20 +177,14 @@ protected:
 private:
     virtual const Def* vrebuild(HENK_TABLE_TYPE& to, Defs ops) const = 0;
 
-    HENK_TABLE_TYPE& HENK_TABLE_NAME_;
+    mutable HENK_TABLE_TYPE* HENK_TABLE_NAME_;
     int tag_;
     const Def* type_;
     std::vector<const Def*> ops_;
     mutable size_t gid_;
     static size_t gid_counter_;
     mutable Uses uses_;
-
-private:
-    mutable uint32_t live_ = 0;
     mutable bool is_nominal_;
-
-protected:
-    mutable bool is_outdated_ : 1;
 
 public:
     mutable std::string name_;
@@ -514,6 +504,19 @@ public:
     const Error* error() { return error(error(star())); }
 
     const DefSet& defs() const { return defs_; }
+
+    friend void swap(TableBase& t1, TableBase& t2) {
+        using std::swap;
+        swap(t1.defs_, t2.defs_);
+        t1.fix();
+        t2.fix();
+    }
+
+private:
+    void fix() {
+        for (auto def : defs_)
+            def->HENK_TABLE_NAME_ = &HENK_TABLE_NAME();
+    }
 
 protected:
     const Def* unify_base(const Def* type);

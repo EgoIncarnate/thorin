@@ -158,7 +158,6 @@ public:
         return visit_capturing_intrinsics([&] (Continuation* continuation) { return continuation->intrinsic() == intrinsic; });
     }
     void destroy_body();
-    void refresh(Def2Def&);
 
     virtual const Def* vrebuild(World&, Defs) const override;
     virtual const Def* vreduce(int, const Def*, Def2Def&) const override;
@@ -251,7 +250,6 @@ private:
     std::vector<Todo> todos_;
     CC cc_;
     Intrinsic intrinsic_;
-    mutable uint32_t reachable_ = 0;
     bool is_sealed_  : 1;
     bool is_visited_ : 1;
 

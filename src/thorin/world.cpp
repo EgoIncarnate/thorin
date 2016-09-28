@@ -41,12 +41,12 @@ namespace thorin {
 
 World::World(std::string name)
     : name_(name)
-    , fn0_    (unify(new FnType   (*this, Defs())))
-    , mem_    (unify(new MemType  (*this)))
-    , frame_  (unify(new FrameType(*this)))
 #define THORIN_ALL_TYPE(T, M) \
     ,T##_(unify(new PrimType(*this, PrimType_##T, 1)))
 #include "thorin/tables/primtypetable.h"
+    , fn0_    (unify(new FnType   (*this, {})))
+    , mem_    (unify(new MemType  (*this)))
+    , frame_  (unify(new FrameType(*this)))
 {
     branch_ = continuation(fn_type({type_bool(), fn_type(), fn_type()}), Location(), CC::C, Intrinsic::Branch, "br");
     end_scope_ = continuation(fn_type(), Location(), CC::C, Intrinsic::EndScope, "end_scope");
@@ -790,6 +790,7 @@ Array<Continuation*> World::copy_continuations() const {
 }
 
 const Def* World::cse_base(const PrimOp* primop) {
+    // TODO remove
     THORIN_CHECK_BREAK(primop->gid());
     auto i = primops_.find(primop);
     if (i != primops_.end()) {

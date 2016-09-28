@@ -25,7 +25,6 @@ public:
     virtual const Def* vreduce(int, const Def*, Def2Def&) const override; // TODO
     virtual const Def* vrebuild(World& to, Defs ops) const override; // TODO
     virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const = 0;
-    virtual const Def* rebuild(Def2Def&) const override;
     const Def* rebuild(World& to, Defs ops, const Def* type) const {
         assert(this->num_ops() == ops.size());
         return vrebuild(to, ops, type);

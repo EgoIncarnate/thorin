@@ -55,8 +55,6 @@ std::string Def::unique_name() const {
     return oss.str();
 }
 
-//------------------------------------------------------------------------------
-
 /*
  * constructors
  */
@@ -255,6 +253,7 @@ const Def* TableBase<T>::unify_base(const Def* def) {
     if (p.second)
         return def;
 
+    --Def::gid_counter_;
     delete def;
     return *p.first;
 }
