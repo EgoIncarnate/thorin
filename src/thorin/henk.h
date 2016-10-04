@@ -129,7 +129,6 @@ public:
 
     int tag() const { return tag_; }
     HENK_TABLE_TYPE& HENK_TABLE_NAME() const { return *HENK_TABLE_NAME_; }
-
     Defs ops() const { return ops_; }
     const Def* op(size_t i) const;
     size_t num_ops() const { return ops_.size(); }
@@ -142,12 +141,7 @@ public:
     void set(Defs);
     void set(size_t i, const Def*);
     void unset(size_t i);
-#ifdef HENK_CONTINUATION
-    Continuation* as_continuation() const;
-    Continuation* isa_continuation() const;
-#endif
     void replace(const Def*) const;
-
     bool is_nominal() const { return is_nominal_; }           ///< A nominal @p Def is always different from each other @p Def.
     bool is_structural() const { return !is_nominal(); }      ///< A structural @p Def is always unified with a syntactically equivalent @p Def.
     bool is_known()   const { return known_; }                ///< Does this @p Def depend on any @p Unknown%s?
@@ -161,6 +155,11 @@ public:
     const Def* reduce(int, const Def*, Def2Def&) const;
     const Def* rebuild(HENK_TABLE_TYPE& to, Defs ops) const;
     const Def* rebuild(Defs ops) const { return rebuild(HENK_TABLE_NAME(), ops); }
+
+#ifdef HENK_CONTINUATION
+    Continuation* as_continuation() const;
+    Continuation* isa_continuation() const;
+#endif
 
     static size_t gid_counter() { return gid_counter_; }
 
