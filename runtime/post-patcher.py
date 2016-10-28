@@ -143,12 +143,12 @@ nvvm_defs = {
     ret i32 %1
 }
 """,
-  "__all" : """define i32 @all(i32 %a) {
+  "__all" : """define i32 @__all(i32 %a) {
     %1 = call i32 asm
         "{ .reg .pred %p1;
-            setp.ne.u32 %p1, $1, 0;
+            setp.ne.s32 %p1, $1, 0;
             vote.all.pred $0, %p1;
-        }", "=r, r" (i32 %a)
+        }", "=b, r" (i32 %a)
     ret i32 %1
 }
 """,
@@ -197,7 +197,7 @@ nvvm_defs = {
 }
 """,
   "shflup_add_u32": """define i32 @shflup_add_u32(i32 %a, i32 %b, i32 %c) {
-    %1 = call i32 asm
+    %1 = call i32 asm sideeffect
       "{ .reg .u32 r0;
          .reg .pred p;
          shfl.up.b32 r0|p, $1, $2, $3;
@@ -228,19 +228,30 @@ nvvm_defs = {
     ret i32 %1
 }
 """,
-  "st2_cg_u32" : """define void @st2_cg_u32(<2 x u32>* %ptr, <2 x u32> %val) {
-    %1 = extractvalue {u32, u32} %val, 0
-    %2 = extractvalue {u32, u32} %val, 1
-    call void asm sideeffect "st.cg.v2.u32 [$0], {$1, $2};", "l, r, r" (<2 x u32>* %ptr, u32 %1, u32 %2)
+  "st2_cg_s32" : """define i32 @st2_cg_s32(<2 x i32>* %ptr, <2 x i32> %val) {
+    %1 = extractelement <2 x i32> %val, i32 0
+    %2 = extractelement <2 x i32> %val, i32 1
+    call void asm sideeffect "st.cg.v2.s32 [$0], {$1, $2};", "l, r, r" (<2 x i32>* %ptr, i32 %1, i32 %2)
+    ret i32 0
   }
 """,
-  "ld2_cg_u32" : """define <2 x u32> @ld2_cg_u32(<2 x u32>* %ptr) {
-    %1 = call {u32, u32} asm "ld.cg.v2.u32 {$0, $1}, [$2]", "=r, =r, l" (<2 x u32>* %ptr)
-    %2 = extractvalue {u32, u32} %1, 0
-    %3 = extractvalue {u32, u32} %1, 1
-    %4 = insertelement <2 x u32> undef, u32 %2, i32 0
-    %5 = insertelement <2 x u32> %4, u32 %3, i32 1
-    ret <2 x u32> %5
+  "ld2_cg_s32" : """define <2 x i32> @ld2_cg_s32(<2 x i32>* %ptr) {
+    %1 = call {i32, i32} asm sideeffect "ld.cg.v2.s32 {$0, $1}, [$2];", "=r,=r, l" (<2 x i32>* %ptr)
+    %2 = extractvalue {i32, i32} %1, 0
+    %3 = extractvalue {i32, i32} %1, 1
+    %4 = insertelement <2 x i32> undef, i32 %2, i32 0
+    %5 = insertelement <2 x i32> %4, i32 %3, i32 1
+    ret <2 x i32> %5
+  }
+""",
+  "st_vol_f32" : """define i32 @st_vol_f32(float* %ptr, float %val) {
+    call void asm sideeffect "st.volatile.f32 [$0], $1;", "l, r" (float* %ptr, i32 %val)
+    ret i32 0
+  }
+""",
+  "ld_vol_f32" : """define f32 @ld_vol_f32(float* %ptr) {
+    %1 = call f32 asm sideeffect "ld.volatile.f32 $0, [$1];", "=r, l" (float* %ptr)
+    ret f32 %1
   }
 """
 }

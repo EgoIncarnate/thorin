@@ -8,6 +8,7 @@
 #include <cstring>
 #include <fstream>
 #include <string>
+#include <iostream>
 
 #ifndef LIBDEVICE_DIR
 #define LIBDEVICE_DIR ""
@@ -360,6 +361,18 @@ int CudaPlatform::dev_count() {
 }
 
 void CudaPlatform::compile_nvvm(device_id dev, const char* file_name, CUjit_target target_cc) {
+  bool load_patched_ptx = false;
+
+  if (load_patched_ptx) {
+      std::ifstream in("patched.ptx");
+      in.seekg(0, std::ios_base::end);
+      int size = in.tellg();
+      in.seekg(0);
+      char *cstr = new char[size];
+      in.read(cstr, size);
+      create_module(dev, file_name, target_cc, cstr);
+  }
+
     // Select libdevice module according to documentation
     std::string libdevice_file_name;
     switch (target_cc) {
@@ -435,10 +448,16 @@ void CudaPlatform::compile_nvvm(device_id dev, const char* file_name, CUjit_targ
     err = nvvmGetCompiledResult(program, &ptx[0]);
     checkErrNvvm(err, "nvvmGetCompiledResult()");
 
+    std::ofstream out("out.ptx");
+    out << ptx;
+    out.close();
+
     err = nvvmDestroyProgram(&program);
     checkErrNvvm(err, "nvvmDestroyProgram()");
 
-    create_module(dev, file_name, target_cc, ptx.c_str());
+    if (!load_patched_ptx) {
+        create_module(dev, file_name, target_cc, ptx.c_str());
+    }
 }
 
 #ifdef CUDA_NVRTC

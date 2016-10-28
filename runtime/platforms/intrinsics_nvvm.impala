@@ -405,8 +405,10 @@ extern "C" {
     fn clock() -> i64;
     fn bfe(a: i32, b: i32, c: i32) -> i32;
     fn lane_mask_ge() -> i32;
-    fn st2_cg_u32(&simd[u32 * 2], simd[u32 * 2]) -> ();
-    fn ld2_cg_u32(&simd[u32 * 2]) -> simd[u32 * 2];
+    fn st2_cg_s32(&simd[i32 * 2], simd[i32 * 2]) -> i32;
+    fn ld2_cg_s32(&simd[i32 * 2]) -> simd[i32 * 2];
+    fn st_vol_f32(&f32, f32) -> i32;
+    fn ld_vol_f32(&f32) -> f32;
 }
 
 // count leading zeros
