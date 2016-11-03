@@ -47,7 +47,7 @@ public:
     // types
 
 #define THORIN_ALL_TYPE(T, M) \
-    const PrimType* type_##T(size_t length = 1) { return length == 1 ? T##_ : new PrimType(*this, PrimType_##T, length); }
+    const PrimType* type_##T(size_t length = 1) { return length == 1 ? T##_ : unify(new PrimType(*this, PrimType_##T, length)); }
 #include "thorin/tables/primtypetable.h"
 
     const PrimType* type(PrimTypeTag tag, size_t length = 1) {
@@ -140,7 +140,7 @@ public:
     }
 
     const Def* select(const Def* cond, const Def* t, const Def* f, const Location& loc, const std::string& name = "");
-    const Def* size_of(const Def* of, const Location& loc, const std::string& name = "") { return cse(new SizeOf(of, loc, name)); }
+    const Def* size_of(const Def* type, const Location& loc, const std::string& name = "") { return cse(new SizeOf(bottom(type, loc), loc, name)); }
 
     // memory stuff
 
@@ -153,6 +153,8 @@ public:
     const Def* global(const Def* init, const Location& loc, bool is_mutable = true, const std::string& name = "");
     const Def* global_immutable_string(const Location& loc, const std::string& str, const std::string& name = "");
     const Def* lea(const Def* ptr, const Def* index, const Location& loc, const std::string& name = "") { return cse(new LEA(ptr, index, loc, name)); }
+    const Assembly* assembly(const Def* type, Defs inputs, std::string asm_template, ArrayRef<std::string> output_constraints, ArrayRef<std::string> input_constraints, ArrayRef<std::string> clobbers, Assembly::Flags flags, const Location& loc);
+    const Assembly* assembly(Defs types, const Def* mem, Defs inputs, std::string asm_template, ArrayRef<std::string> output_constraints, ArrayRef<std::string> input_constraints, ArrayRef<std::string> clobbers, Assembly::Flags flags, const Location& loc);
 
     // guided partial evaluation
 

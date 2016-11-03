@@ -4,20 +4,22 @@
 #include <stdexcept>
 
 #include <llvm/ADT/Triple.h>
-#include <llvm/Analysis/Verifier.h>
 #include <llvm/Bitcode/ReaderWriter.h>
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/InlineAsm.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
-#include <llvm/PassManager.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm/IR/LegacyPassManager.h>
 #include <llvm/Support/Host.h>
 #include <llvm/Support/Path.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/IPO.h>
@@ -45,19 +47,16 @@
 
 namespace thorin {
 
-CodeGen::CodeGen(World& world, llvm::GlobalValue::LinkageTypes function_import_linkage, llvm::GlobalValue::LinkageTypes function_export_linkage,
-                 llvm::CallingConv::ID function_calling_convention, llvm::CallingConv::ID device_calling_convention, llvm::CallingConv::ID kernel_calling_convention)
+CodeGen::CodeGen(World& world, llvm::CallingConv::ID function_calling_convention, llvm::CallingConv::ID device_calling_convention, llvm::CallingConv::ID kernel_calling_convention)
     : world_(world)
     , context_()
     , module_(new llvm::Module(world.name(), context_))
     , irbuilder_(context_)
     , dibuilder_(*module_.get())
-    , function_import_linkage_(function_import_linkage)
-    , function_export_linkage_(function_export_linkage)
     , function_calling_convention_(function_calling_convention)
     , device_calling_convention_(device_calling_convention)
     , kernel_calling_convention_(kernel_calling_convention)
-    , runtime_(new Runtime(context_, module_, irbuilder_))
+    , runtime_(new Runtime(context_, *module_.get(), irbuilder_))
 {}
 
 Continuation* CodeGen::emit_intrinsic(Continuation* continuation) {
@@ -66,10 +65,10 @@ Continuation* CodeGen::emit_intrinsic(Continuation* continuation) {
         case Intrinsic::Atomic:    return emit_atomic(continuation);
         case Intrinsic::CmpXchg:   return emit_cmpxchg(continuation);
         case Intrinsic::Reserve:   return emit_reserve(continuation);
-        case Intrinsic::CUDA:      return runtime_->emit_host_code(*this, Runtime::CUDA_PLATFORM, ".cu", continuation);
-        case Intrinsic::NVVM:      return runtime_->emit_host_code(*this, Runtime::CUDA_PLATFORM, ".nvvm", continuation);
-        case Intrinsic::SPIR:      return runtime_->emit_host_code(*this, Runtime::OPENCL_PLATFORM, ".spir.bc", continuation);
-        case Intrinsic::OpenCL:    return runtime_->emit_host_code(*this, Runtime::OPENCL_PLATFORM, ".cl", continuation);
+        case Intrinsic::CUDA:      return runtime_->emit_host_code(*this, Runtime::CUDA_PLATFORM, continuation);
+        case Intrinsic::NVVM:      return runtime_->emit_host_code(*this, Runtime::CUDA_PLATFORM, continuation);
+        case Intrinsic::SPIR:      return runtime_->emit_host_code(*this, Runtime::OPENCL_PLATFORM, continuation);
+        case Intrinsic::OpenCL:    return runtime_->emit_host_code(*this, Runtime::OPENCL_PLATFORM, continuation);
         case Intrinsic::Parallel:  return emit_parallel(continuation);
         case Intrinsic::Spawn:     return emit_spawn(continuation);
         case Intrinsic::Sync:      return emit_sync(continuation);
@@ -83,7 +82,7 @@ Continuation* CodeGen::emit_intrinsic(Continuation* continuation) {
 }
 
 void CodeGen::emit_result_phi(const Param* param, llvm::Value* value) {
-    find(phis_, param)->addIncoming(value, irbuilder_.GetInsertBlock());
+    thorin::find(phis_, param)->addIncoming(value, irbuilder_.GetInsertBlock());
 }
 
 Continuation* CodeGen::emit_atomic(Continuation* continuation) {
@@ -110,8 +109,11 @@ Continuation* CodeGen::emit_cmpxchg(Continuation* continuation) {
     auto cont = continuation->arg(4)->as_continuation();
     assert(is_type_i(continuation->arg(3)->type()) && "cmpxchg only supported for integer types");
 
-    auto call = irbuilder_.CreateAtomicCmpXchg(ptr, cmp, val, llvm::AtomicOrdering::SequentiallyConsistent, llvm::SynchronizationScope::CrossThread);
-    emit_result_phi(cont->param(1), call);
+    auto call = irbuilder_.CreateAtomicCmpXchg(ptr, cmp, val, llvm::AtomicOrdering::SequentiallyConsistent, llvm::AtomicOrdering::SequentiallyConsistent, llvm::SynchronizationScope::CrossThread);
+    auto loaded  = irbuilder_.CreateExtractValue(call, unsigned(0));
+    auto success = irbuilder_.CreateExtractValue(call, unsigned(1));
+    emit_result_phi(cont->param(1), loaded);
+    emit_result_phi(cont->param(2), success);
     return cont;
 }
 
@@ -150,17 +152,26 @@ llvm::FunctionType* CodeGen::convert_fn_type(Continuation* continuation) {
 }
 
 llvm::Function* CodeGen::emit_function_decl(Continuation* continuation) {
-    if (auto f = find(fcts_, continuation))
+    if (auto f = thorin::find(fcts_, continuation))
         return f;
 
     std::string name = (continuation->is_external() || continuation->empty()) ? continuation->name() : continuation->unique_name();
     auto f = llvm::cast<llvm::Function>(module_->getOrInsertFunction(name, convert_fn_type(continuation)));
 
+#ifdef _MSC_VER
+    // set dll storage class for MSVC
+    if (!entry_ && llvm::Triple(llvm::sys::getProcessTriple()).isOSWindows()) {
+        if (continuation->empty()) {
+            f->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
+        } else if (continuation->is_external()) {
+            f->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+        }
+    }
+#endif
+
     // set linkage
-    if (continuation->empty())
-        f->setLinkage(function_import_linkage_);
-    else if (continuation->is_external())
-        f->setLinkage(function_export_linkage_);
+    if (continuation->empty() || continuation->is_external())
+        f->setLinkage(llvm::Function::ExternalLinkage);
     else
         f->setLinkage(llvm::Function::InternalLinkage);
 
@@ -179,11 +190,13 @@ llvm::Function* CodeGen::emit_function_decl(Continuation* continuation) {
 }
 
 void CodeGen::emit(int opt, bool debug) {
+    llvm::DICompileUnit* dicompile_unit;
     if (debug) {
         module_->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
         // Darwin only supports dwarf2
         if (llvm::Triple(llvm::sys::getProcessTriple()).isOSDarwin())
             module_->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
+        dicompile_unit = dibuilder_.createCompileUnit(llvm::dwarf::DW_LANG_C, world_.name(), llvm::StringRef(), "Impala", opt > 0, llvm::StringRef(), 0);
     }
 
     Scope::for_each(world_, [&] (const Scope& scope) {
@@ -191,16 +204,18 @@ void CodeGen::emit(int opt, bool debug) {
         assert(entry_->is_returning());
         llvm::Function* fct = emit_function_decl(entry_);
 
-        llvm::DILexicalBlockFile discope;
+        llvm::DISubprogram* disub_program;
+        llvm::DIScope* discope = dicompile_unit;
         if (debug) {
             auto src_file = llvm::sys::path::filename(entry_->loc().begin().filename());
             auto src_dir = llvm::sys::path::parent_path(entry_->loc().begin().filename());
             auto difile = dibuilder_.createFile(src_file, src_dir);
-            auto compile_unit = dibuilder_.createCompileUnit(llvm::dwarf::DW_LANG_C, src_file, src_dir, "Impala", opt > 0, llvm::StringRef(), 0);
-            auto disubprogram = dibuilder_.createFunction(compile_unit, fct->getName(), fct->getName(), difile, entry_->loc().begin().line(),
-                                                         dibuilder_.createSubroutineType(difile, dibuilder_.getOrCreateArray(llvm::ArrayRef<llvm::Value*>())),
-                                                         false /* internal linkage */, true /* definition */, entry_->loc().begin().line(), 0 /* Flags */, opt > 0, fct);
-            discope = dibuilder_.createLexicalBlockFile(disubprogram, difile);
+            disub_program = dibuilder_.createFunction(discope, fct->getName(), fct->getName(), difile, entry_->loc().begin().line(),
+                                                      dibuilder_.createSubroutineType(dibuilder_.getOrCreateTypeArray(llvm::ArrayRef<llvm::Metadata*>())),
+                                                      false /* internal linkage */, true /* definition */, entry_->loc().begin().line(),
+                                                      llvm::DINode::FlagPrototyped /* Flags */, opt > 0);
+            fct->setSubprogram(disub_program);
+            discope = disub_program;
         }
 
         // map params
@@ -214,7 +229,7 @@ void CodeGen::emit(int opt, bool debug) {
                 auto value = map_param(fct, argv, param);
                 if (value == argv) {
                     arg->setName(param->unique_name()); // use param
-                    params_[param] = arg++;
+                    params_[param] = &*arg++;
                 } else {
                     params_[param] = value;             // use provided value
                 }
@@ -247,12 +262,12 @@ void CodeGen::emit(int opt, bool debug) {
         }
 
         auto oldStartBB = fct->begin();
-        auto startBB = llvm::BasicBlock::Create(context_, fct->getName() + "_start", fct, oldStartBB);
+        auto startBB = llvm::BasicBlock::Create(context_, fct->getName() + "_start", fct, &*oldStartBB);
         irbuilder_.SetInsertPoint(startBB);
         if (debug)
             irbuilder_.SetCurrentDebugLocation(llvm::DebugLoc::get(entry_->loc().begin().line(), entry_->loc().begin().col(), discope));
         emit_function_start(startBB, entry_);
-        irbuilder_.CreateBr(oldStartBB);
+        irbuilder_.CreateBr(&*oldStartBB);
 
         for (auto& block : schedule) {
             auto continuation = block.continuation();
@@ -424,31 +439,19 @@ void CodeGen::emit(int opt, bool debug) {
     if (debug)
         dibuilder_.finalize();
 
-    {
-        std::string error;
-        auto bc_name = get_binary_output_name(world_.name());
-        llvm::raw_fd_ostream out(bc_name.c_str(), error, llvm::sys::fs::F_Binary);
-        if (!error.empty())
-            throw std::runtime_error("cannot write '" + bc_name + "': " + error);
+    std::error_code EC;
+    auto ll_name = get_output_name(world_.name());
+    llvm::raw_fd_ostream out(ll_name, EC, llvm::sys::fs::F_Text);
+    if (EC)
+        throw std::runtime_error("cannot write '" + ll_name + "': " + EC.message());
 
-        llvm::WriteBitcodeToFile(module_, out);
-    }
-
-    {
-        std::string error;
-        auto ll_name = get_output_name(world_.name());
-        llvm::raw_fd_ostream out(ll_name.c_str(), error);
-        if (!error.empty())
-            throw std::runtime_error("cannot write '" + ll_name + "': " + error);
-
-        module_->print(out, nullptr);
-    }
+    module_->print(out, nullptr);
 }
 
 void CodeGen::optimize(int opt) {
     if (opt != 0) {
         llvm::PassManagerBuilder pmbuilder;
-        llvm::PassManager pass_manager;
+        llvm::legacy::PassManager pass_manager;
         if (opt == -1) {
             pmbuilder.OptLevel = 2u;
             pmbuilder.SizeLevel = 1;
@@ -469,7 +472,7 @@ void CodeGen::optimize(int opt) {
 
 llvm::Value* CodeGen::lookup(const Def* def) {
     if (auto primop = def->isa<PrimOp>()) {
-        if (auto res = find(primops_, primop))
+        if (auto res = thorin::find(primops_, primop))
             return res;
         else
             return primops_[primop] = emit(def);
@@ -481,7 +484,7 @@ llvm::Value* CodeGen::lookup(const Def* def) {
             return i->second;
 
         assert(phis_.find(param) != phis_.end());
-        return find(phis_, param);
+        return thorin::find(phis_, param);
     }
 
     THORIN_UNREACHABLE;
@@ -717,6 +720,13 @@ llvm::Value* CodeGen::emit(const Def* def) {
         };
 
         if (auto extract = aggop->isa<Extract>()) {
+            // Assemblys with more than two outputs are MemOps and have tuple type
+            // and thus need their own rule here because the standard MemOp rule does not work
+            if (auto assembly = extract->agg()->isa<Assembly>()) {
+                if (assembly->type()->num_ops() > 2 && primlit_value<unsigned>(aggop->index()) != 0)
+                    return irbuilder_.CreateExtractValue(llvm_agg, {primlit_value<unsigned>(aggop->index()) - 1});
+            }
+
             if (auto memop = extract->agg()->isa<MemOp>())
                 return lookup(memop);
 
@@ -773,7 +783,7 @@ llvm::Value* CodeGen::emit(const Def* def) {
         llvm_malloc->addAttribute(llvm::AttributeSet::ReturnIndex, llvm::Attribute::NoAlias);
         auto alloced_type = convert(alloc->alloced_type());
         llvm::CallInst* void_ptr;
-        auto layout = llvm::DataLayout(module_->getDataLayout());
+        auto layout = module_->getDataLayout();
         if (auto array = is_indefinite(alloc->alloced_type())) {
             auto size = irbuilder_.CreateAdd(
                     irbuilder_.getInt64(layout.getTypeAllocSize(alloced_type)),
@@ -789,10 +799,11 @@ llvm::Value* CodeGen::emit(const Def* def) {
         return irbuilder_.CreatePointerCast(void_ptr, convert(alloc->out_ptr_type()));
     }
 
-    if (auto load = def->isa<Load>())    return emit_load(load);
-    if (auto store = def->isa<Store>())  return emit_store(store);
-    if (auto lea = def->isa<LEA>())      return emit_lea(lea);
-    if (def->isa<Enter>())               return nullptr;
+    if (auto load = def->isa<Load>())           return emit_load(load);
+    if (auto store = def->isa<Store>())         return emit_store(store);
+    if (auto lea = def->isa<LEA>())             return emit_lea(lea);
+    if (auto assembly = def->isa<Assembly>())   return emit_assembly(assembly);
+    if (def->isa<Enter>())                      return nullptr;
 
     if (auto slot = def->isa<Slot>())
         return irbuilder_.CreateAlloca(convert(slot->type()->as<PtrType>()->referenced_type()), 0, slot->unique_name());
@@ -834,19 +845,63 @@ llvm::Value* CodeGen::emit_store(const Store* store) {
 
 llvm::Value* CodeGen::emit_lea(const LEA* lea) {
     if (lea->ptr_referenced_type()->isa<Sigma>())
-        return irbuilder_.CreateStructGEP(lookup(lea->ptr()), primlit_value<u32>(lea->index()));
+        return irbuilder_.CreateStructGEP(convert(lea->ptr_referenced_type()), lookup(lea->ptr()), primlit_value<u32>(lea->index()));
 
     assert(lea->ptr_referenced_type()->isa<ArrayType>());
     llvm::Value* args[2] = { irbuilder_.getInt64(0), lookup(lea->index()) };
     return irbuilder_.CreateInBoundsGEP(lookup(lea->ptr()), args);
 }
 
+llvm::Value* CodeGen::emit_assembly(const Assembly* assembly) {
+    auto *out_type = assembly->type();
+    llvm::Type* res_type = nullptr;
+    switch (out_type->num_ops()) {
+        case 0:
+            THORIN_UNREACHABLE;
+            // there must always be the mem type as output
+        case 1:
+            res_type = llvm::Type::getVoidTy(context_);
+            break;
+        case 2:
+            res_type = convert(assembly->type()->op(1));
+            break;
+        default:
+            res_type = convert(world().sigma(assembly->type()->ops().skip_front()));
+            break;
+    }
+
+    size_t num_inputs = assembly->num_inputs();
+    auto input_values = Array<llvm::Value*>(num_inputs);
+    auto input_types = Array<llvm::Type*>(num_inputs);
+    for (size_t i = 0; i != num_inputs; ++i) {
+        input_values[i] = lookup(assembly->input(i));
+        input_types[i] = convert(assembly->input(i)->type());
+    }
+
+    auto fn_type = llvm::FunctionType::get(res_type, llvm_ref(input_types), false);
+
+    std::string constraints;
+    for (auto con : assembly->out_constraints())
+        constraints += con + ",";
+    for (auto con : assembly->in_constraints())
+        constraints += con + ",";
+    for (auto clob : assembly->clobbers())
+        constraints += "~" + clob + ",";
+    // clang always marks those registers as clobbered, so we will do so as well
+    constraints += "~{dirflag},~{fpsr},~{flags}";
+
+    if (!llvm::InlineAsm::Verify(fn_type, constraints))
+        ELOG("Constraints and input and output types of inline assembly do not match at %", assembly->loc());
+
+    auto asm_expr = llvm::InlineAsm::get(fn_type, assembly->asm_template(), constraints,
+            assembly->has_sideeffects(), assembly->is_alignstack(),
+            assembly->is_inteldialect() ? llvm::InlineAsm::AsmDialect::AD_Intel : llvm::InlineAsm::AsmDialect::AD_ATT);
+    return irbuilder_.CreateCall(asm_expr, llvm_ref(input_values));
+}
+
 llvm::Type* CodeGen::convert(const Def* type) {
     if (auto llvm_type = thorin::find(types_, type))
         return llvm_type;
-
-    // wrapper for LLVM 3.4
-    auto getHalfTy = [&]() { return llvm::Type::getHalfTy(context_); };
 
     assert(!type->isa<MemType>());
     llvm::Type* llvm_type;
@@ -856,7 +911,7 @@ llvm::Type* CodeGen::convert(const Def* type) {
         case PrimType_ps16: case PrimType_qs16: case PrimType_pu16: case PrimType_qu16: llvm_type = irbuilder_.getInt16Ty();  break;
         case PrimType_ps32: case PrimType_qs32: case PrimType_pu32: case PrimType_qu32: llvm_type = irbuilder_.getInt32Ty();  break;
         case PrimType_ps64: case PrimType_qs64: case PrimType_pu64: case PrimType_qu64: llvm_type = irbuilder_.getInt64Ty();  break;
-        case PrimType_pf16: case PrimType_qf16:                                         llvm_type =             getHalfTy();  break;
+        case PrimType_pf16: case PrimType_qf16:                                         llvm_type = irbuilder_.getHalfTy();   break;
         case PrimType_pf32: case PrimType_qf32:                                         llvm_type = irbuilder_.getFloatTy();  break;
         case PrimType_pf64: case PrimType_qf64:                                         llvm_type = irbuilder_.getDoubleTy(); break;
         case Node_PtrType: {

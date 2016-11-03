@@ -1,7 +1,7 @@
 #ifndef THORIN_BE_LLVM_LLVM_H
 #define THORIN_BE_LLVM_LLVM_H
 
-#include <llvm/DIBuilder.h>
+#include <llvm/IR/DIBuilder.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 
@@ -16,8 +16,7 @@ typedef ContinuationMap<llvm::BasicBlock*> BBMap;
 
 class CodeGen {
 protected:
-    CodeGen(World& world, llvm::GlobalValue::LinkageTypes function_import_linkage, llvm::GlobalValue::LinkageTypes function_export_linkage,
-            llvm::CallingConv::ID function_calling_convention, llvm::CallingConv::ID device_calling_convention, llvm::CallingConv::ID kernel_calling_convention);
+    CodeGen(World& world, llvm::CallingConv::ID function_calling_convention, llvm::CallingConv::ID device_calling_convention, llvm::CallingConv::ID kernel_calling_convention);
 
 public:
     World& world() const { return world_; }
@@ -39,6 +38,7 @@ protected:
     virtual llvm::Value* emit_load(const Load*);
     virtual llvm::Value* emit_store(const Store*);
     virtual llvm::Value* emit_lea(const LEA*);
+    virtual llvm::Value* emit_assembly(const Assembly* assembly);
 
     virtual std::string get_alloc_name() const = 0;
     virtual std::string get_output_name(const std::string& name) const = 0;
@@ -64,11 +64,9 @@ protected:
 
     World& world_;
     llvm::LLVMContext context_;
-    AutoPtr<llvm::Module> module_;
+    std::unique_ptr<llvm::Module> module_;
     llvm::IRBuilder<> irbuilder_;
     llvm::DIBuilder dibuilder_;
-    llvm::GlobalValue::LinkageTypes function_import_linkage_;
-    llvm::GlobalValue::LinkageTypes function_export_linkage_;
     llvm::CallingConv::ID function_calling_convention_;
     llvm::CallingConv::ID device_calling_convention_;
     llvm::CallingConv::ID kernel_calling_convention_;

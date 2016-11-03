@@ -122,7 +122,9 @@ void Cleaner::rebuild() {
     World new_world(world_.name());
     Def2Def old2new;
 
+#ifndef NDEBUG
     world_.swap_breakpoints(new_world);
+#endif
 
     for (auto external : world().externals())
         import(new_world, old2new, external);

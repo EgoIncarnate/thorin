@@ -66,9 +66,8 @@ LEA::LEA(const Def* ptr, const Def* index, const Location& loc, const std::strin
     }
 }
 
-SizeOf::SizeOf(const Def* of, const Location& loc, const std::string& name)
-    : PrimOp(Node_SizeOf, of->world().type_qs32(), {}, loc, name)
-    , of_(of)
+SizeOf::SizeOf(const Def* def, const Location& loc, const std::string& name)
+    : PrimOp(Node_SizeOf, def->world().type_qs32(), {def}, loc, name)
 {}
 
 Slot::Slot(const Def* type, const Def* frame, const Location& loc, const std::string& name)
@@ -105,6 +104,24 @@ Enter::Enter(const Def* mem, const Location& loc, const std::string& name)
     set_type(w.sigma({w.mem_type(), w.frame_type()}, loc, name));
 }
 
+Assembly::Assembly(const Def *type, Defs inputs, std::string asm_template, ArrayRef<std::string> output_constraints, ArrayRef<std::string> input_constraints, ArrayRef<std::string> clobbers, Flags flags, const Location& loc)
+    : MemOp(Node_Assembly, type, inputs, loc, "")
+    , template_(asm_template)
+    , output_constraints_(output_constraints)
+    , input_constraints_(input_constraints)
+    , clobbers_(clobbers)
+    , flags_(flags)
+{
+    name_ = "asm(\"" + asm_template + "\" : \"";
+    for (auto out_const : output_constraints)
+        name_ += out_const + ",";
+    for (auto in_const : input_constraints)
+        name_ += in_const + ",";
+    for (auto clob : clobbers)
+        name_ += "~" + clob + ",";
+    name_ += "\")";
+}
+
 //------------------------------------------------------------------------------
 
 /*
@@ -112,7 +129,6 @@ Enter::Enter(const Def* mem, const Location& loc, const std::string& name)
  */
 
 uint64_t PrimLit::vhash() const { return hash_combine(Literal::vhash(), bcast<uint64_t, Box>(value())); }
-uint64_t SizeOf::vhash() const { return hash_combine(PrimOp::vhash(), of()); }
 uint64_t Slot::vhash() const { return hash_combine((int) tag(), gid()); }
 
 //------------------------------------------------------------------------------
@@ -123,10 +139,6 @@ uint64_t Slot::vhash() const { return hash_combine((int) tag(), gid()); }
 
 bool PrimLit::equal(const Def* other) const {
     return Literal::equal(other) ? this->value() == other->as<PrimLit>()->value() : false;
-}
-
-bool SizeOf::equal(const Def* other) const {
-    return PrimOp::equal(other) ? this->of() == other->as<SizeOf>()->of() : false;
 }
 
 bool Slot::equal(const Def* other) const { return this == other; }
@@ -154,7 +166,7 @@ const Def* Load   ::vrebuild(World& to, Defs ops, const Def*  ) const { return t
 const Def* PrimLit::vrebuild(World& to, Defs,     const Def*  ) const { return to.literal(primtype_tag(), value(), loc()); }
 const Def* Run    ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.run(ops[0], ops[1], loc(), name()); }
 const Def* Select ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.select(ops[0], ops[1], ops[2], loc(), name()); }
-const Def* SizeOf ::vrebuild(World& to, Defs,     const Def*  ) const { return to.size_of(of(), loc(), name()); }
+const Def* SizeOf ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.size_of(ops[0]->type(), loc(), name()); }
 const Def* Slot   ::vrebuild(World& to, Defs ops, const Def* t) const { return to.slot(t->as<PtrType>()->referenced_type(), ops[0], loc(), name()); }
 const Def* Store  ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.store(ops[0], ops[1], ops[2], loc(), name()); }
 const Def* Vector ::vrebuild(World& to, Defs ops, const Def*  ) const { return to.vector(ops, loc(), name()); }
@@ -163,6 +175,9 @@ const Def* Alloc::vrebuild(World& to, Defs ops, const Def* t) const {
     return to.alloc(t->as<Sigma>()->op(1)->as<PtrType>()->referenced_type(), ops[0], ops[1], loc(), name());
 }
 
+const Def* Assembly::vrebuild(World& to, Defs ops, const Def* t) const {
+    return to.assembly(t, ops, template_, output_constraints_, input_constraints_, clobbers_, flags_, loc());
+}
 
 const Def* DefiniteArray::vrebuild(World& to, Defs ops, const Def* t) const {
     return to.definite_array(t->as<DefiniteArrayType>()->elem_type(), ops, loc(), name());

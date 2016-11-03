@@ -128,20 +128,15 @@ public:
     friend class World;
 };
 
-/// Get number of bytes needod for @p type.
+/// Get number of bytes needed for any value (including bottom) of a given @p Type.
 class SizeOf : public PrimOp {
 private:
-    SizeOf(const Def* type, const Location& loc, const std::string& name);
+    SizeOf(const Def* def, const Location& loc, const std::string& name);
 
-public:
-    const Def* of() const { return of_; }
-
-private:
-    virtual uint64_t vhash() const override;
-    virtual bool equal(const Def* other) const override;
     virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const override;
 
-    const Def* of_;
+public:
+    const Def* of() const { return op(0)->type(); }
 
     friend class World;
 };
@@ -533,6 +528,48 @@ public:
 
     friend class World;
 };
+
+class Assembly : public MemOp {
+public:
+    enum Flags {
+        NoFlag         = 0,
+        HasSideEffects = 1 << 0,
+        IsAlignStack   = 1 << 1,
+        IsIntelDialect = 1 << 2,
+    };
+
+private:
+    Assembly(const Def *type, Defs inputs, std::string asm_template, ArrayRef<std::string> output_constraints, ArrayRef<std::string> input_constraints, ArrayRef<std::string> clobbers, Flags flags, const Location& loc);
+
+public:
+    Defs inputs() const { return ops().skip_front(); }
+    const Def* input(size_t i) const { return inputs()[i]; }
+    size_t num_inputs() const { return inputs().size(); }
+    virtual bool has_multiple_outs() const override { return true; }
+    const Sigma* type() const { return MemOp::type()->as<Sigma>(); }
+    const std::string& asm_template() const { return template_; }
+    const ArrayRef<std::string> out_constraints() const { return output_constraints_; }
+    const ArrayRef<std::string> in_constraints() const { return input_constraints_; }
+    const ArrayRef<std::string> clobbers() const { return clobbers_; }
+    bool has_sideeffects() const { return flags_ & HasSideEffects; }
+    bool is_alignstack() const { return flags_ & IsAlignStack; }
+    bool is_inteldialect() const { return flags_ & IsIntelDialect; }
+    Flags flags() const { return flags_; }
+
+private:
+    virtual const Def* vrebuild(World& to, Defs ops, const Def* type) const override;
+
+    std::string template_;
+    Array<std::string> output_constraints_, input_constraints_, clobbers_;
+    Flags flags_;
+
+    friend class World;
+};
+
+inline Assembly::Flags operator|(Assembly::Flags lhs, Assembly::Flags rhs) { return static_cast<Assembly::Flags>(static_cast<int>(lhs) | static_cast<int>(rhs)); }
+inline Assembly::Flags operator&(Assembly::Flags lhs, Assembly::Flags rhs) { return static_cast<Assembly::Flags>(static_cast<int>(lhs) & static_cast<int>(rhs)); }
+inline Assembly::Flags operator|=(Assembly::Flags& lhs, Assembly::Flags rhs) { return lhs = lhs | rhs; }
+inline Assembly::Flags operator&=(Assembly::Flags& lhs, Assembly::Flags rhs) { return lhs = lhs & rhs; }
 
 //------------------------------------------------------------------------------
 

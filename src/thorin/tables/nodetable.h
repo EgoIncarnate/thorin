@@ -44,6 +44,7 @@
         THORIN_NODE(Hlt, hlt)
         THORIN_NODE(EndRun, end_run)
         THORIN_NODE(EndHlt, end_hlt)
+        THORIN_NODE(Assembly, asm)
     // Type
         THORIN_NODE(DefiniteArrayType, definite_array_type)
         THORIN_NODE(FnType, fn)
